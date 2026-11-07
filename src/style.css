@@ -70,6 +70,16 @@
       disabled:cursor-not-allowed disabled:opacity-60;
   }
 
+  .btn-line {
+    @apply inline-flex items-center justify-center gap-2 rounded-[3px] border border-ink bg-transparent
+      px-5 py-3 text-[15px] font-semibold text-ink transition-colors hover:bg-ink hover:text-paper
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-small {
+    @apply px-3.5 py-2 text-sm;
+  }
+
   .field {
     @apply w-full rounded-[3px] border border-rule bg-white/70 px-3 py-3 text-[15px]
       text-ink outline-none transition-colors placeholder:text-ink-soft/70 focus:border-ink;
