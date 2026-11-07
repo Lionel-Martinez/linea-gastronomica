@@ -133,7 +133,6 @@ const visibleProducts = computed(() => {
   const term = normalize(search.value.trim())
 
   return menuData.products.filter((product) => {
-    if (!product.available) return false
     if (!term) return true
 
     return (
@@ -510,20 +509,36 @@ onUnmounted(() => {
               alt=""
               loading="lazy"
               class="size-[72px] shrink-0 rounded-[3px] bg-paper-deep object-cover"
+              :class="product.available ? '' : 'opacity-45 grayscale'"
             />
 
             <div class="min-w-0 flex-1">
               <div class="flex items-baseline gap-2">
-                <h3 class="font-display text-[1.1875rem] font-medium leading-snug">
+                <h3
+                  class="font-display text-[1.1875rem] font-medium leading-snug"
+                  :class="product.available ? '' : 'text-ink-soft'"
+                >
                   {{ product.name }}
                 </h3>
                 <span class="leader" aria-hidden="true"></span>
-                <span class="whitespace-nowrap font-semibold tabular-nums">
+                <span
+                  v-if="product.available"
+                  class="whitespace-nowrap font-semibold tabular-nums"
+                >
                   {{ formatPrice(product.price) }}
+                </span>
+                <span
+                  v-else
+                  class="whitespace-nowrap border border-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent-deep"
+                >
+                  Agotado
                 </span>
               </div>
 
-              <p class="mt-1 text-[15px] leading-snug text-ink-soft">
+              <p
+                class="mt-1 text-[15px] leading-snug text-ink-soft"
+                :class="product.available ? '' : 'opacity-70'"
+              >
                 {{ product.description }}
               </p>
             </div>
