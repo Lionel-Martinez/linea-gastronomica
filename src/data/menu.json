@@ -3,6 +3,11 @@
     "name": "Café Aurora",
     "description": "Un lugar para disfrutar cada momento.",
     "address": "San Ramón de la Nueva Orán, Salta",
+    "modalities": [
+      { "id": "dine-in", "label": "Comer en el local", "enabled": true },
+      { "id": "pickup", "label": "Retirar", "enabled": true },
+      { "id": "delivery", "label": "Delivery", "enabled": false }
+    ],
     "schedule": {
       "timezone": "America/Argentina/Buenos_Aires",
       "days": [

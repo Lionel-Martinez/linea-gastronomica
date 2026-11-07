@@ -70,6 +70,13 @@ const wifi = business.wifi
 const contact = business.contact
 const social = business.social
 const links = business.links
+
+// Modalidades de atención: solo se muestran las habilitadas (con todas apagadas no se muestra nada).
+const modalities = computed(() =>
+  (business.modalities as { id: string; label: string; enabled: boolean }[]).filter(
+    (modality) => modality.enabled
+  )
+)
 // Datos de ejemplo (menu.json). Si hay Supabase configurado se reemplazan por los reales,
 // así lo que el personal edita (precios, "Agotado") se ve también en la carta.
 const allCategories = ref<MenuCategory[]>(menuData.categories)
@@ -419,6 +426,20 @@ onUnmounted(() => {
         <MapPin class="size-4 shrink-0" aria-hidden="true" />
         {{ business.address }}
       </a>
+
+      <ul
+        v-if="modalities.length"
+        class="mt-4 flex flex-wrap gap-x-2 gap-y-1.5"
+        aria-label="Modalidades de atención"
+      >
+        <li
+          v-for="modality in modalities"
+          :key="modality.id"
+          class="border border-ink px-2.5 py-1 text-xs font-semibold uppercase tracking-wide"
+        >
+          {{ modality.label }}
+        </li>
+      </ul>
     </header>
 
     <!-- Accesos rápidos -->

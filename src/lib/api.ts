@@ -20,6 +20,8 @@ export function friendlyError(error: unknown): string {
     return 'Esta mesa ya tiene varios pedidos esperando confirmación. Avisale al personal.'
   if (message.includes('product_unavailable'))
     return 'Algún producto ya no está disponible. Actualizamos la carta, revisá tu pedido.'
+  if (message.includes('invalid_name'))
+    return 'Escribí tu nombre (al menos 2 letras) para que el personal sepa de quién es el pedido.'
   if (message.includes('invalid_items'))
     return 'Hay un problema con el pedido. Revisalo e intentá de nuevo.'
   if (message.includes('Invalid login credentials'))
@@ -80,10 +82,21 @@ export interface OrderLinePayload {
   note: string
 }
 
-export async function createOrder(table: number, items: OrderLinePayload[]): Promise<string> {
+/**
+ * `token` identifica este intento de envío: si se corta la respuesta y se reintenta
+ * con el mismo token, la base devuelve el pedido ya creado en lugar de duplicarlo.
+ */
+export async function createOrder(
+  table: number,
+  items: OrderLinePayload[],
+  name: string,
+  token: string
+): Promise<string> {
   const { data, error } = await db().rpc('create_order', {
     p_table: table,
-    p_items: items
+    p_items: items,
+    p_name: name,
+    p_token: token
   })
 
   if (error) throw error

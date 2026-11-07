@@ -109,7 +109,7 @@ function beep() {
 }
 
 function notify(fresh: Order[]) {
-  alertText.value = fresh.map((order) => `Mesa ${order.table_number}`).join(', ')
+  alertText.value = fresh.map((order) => `Mesa ${order.table_number}${order.customer_name ? ` (${order.customer_name})` : ''}`).join(', ')
 
   window.clearTimeout(alertTimer)
   alertTimer = window.setTimeout(() => {
@@ -272,6 +272,9 @@ onUnmounted(() => {
                   <p class="font-display text-3xl font-semibold leading-none">
                     Mesa {{ order.table_number }}
                   </p>
+                  <p v-if="order.customer_name" class="mt-1.5 text-[15px] font-semibold">
+                    {{ order.customer_name }}
+                  </p>
                   <p class="mt-1.5 text-[13px] tabular-nums text-ink-soft">
                     {{ formatClock(order.created_at) }} · {{ agoLabel(waiting(order)) }}
                   </p>
@@ -345,6 +348,7 @@ onUnmounted(() => {
           >
             <span>
               <span class="font-semibold">Mesa {{ order.table_number }}</span>
+              <span v-if="order.customer_name" class="ml-2">{{ order.customer_name }}</span>
               <span class="ml-2 tabular-nums text-ink-soft">{{ formatClock(order.created_at) }}</span>
             </span>
             <span class="tabular-nums">

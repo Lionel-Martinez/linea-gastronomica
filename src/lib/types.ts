@@ -37,6 +37,7 @@ export interface OrderItem {
 export interface Order {
   id: string
   table_number: number
+  customer_name: string
   status: OrderStatus
   total: number
   created_at: string

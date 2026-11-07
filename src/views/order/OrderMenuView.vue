@@ -15,7 +15,15 @@ import {
   loadMenu
 } from '../../lib/api'
 import { businessName, formatPrice } from '../../lib/format'
-import { clearLastOrder, getLastOrder, setLastOrder } from '../../lib/lastOrder'
+import {
+  clearLastOrder,
+  clearSubmitToken,
+  getLastOrder,
+  getName,
+  setLastOrder,
+  setName,
+  submitToken
+} from '../../lib/lastOrder'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   ACTIVE_STATUSES,
@@ -136,6 +144,7 @@ function selectCategory(id: string, event: Event) {
 
 const sheetOpen = ref(false)
 const sending = ref(false)
+const customerName = ref(getName())
 const sendError = ref('')
 
 function openCart() {
@@ -147,12 +156,22 @@ function openCart() {
 async function send() {
   if (!lines.value.length || sending.value) return
 
+  const name = customerName.value.trim()
+  if (name.length < 2) {
+    sendError.value = 'Escribí tu nombre (al menos 2 letras) para que el personal sepa de quién es el pedido.'
+    document.getElementById('customer-name')?.focus()
+    return
+  }
+
   sending.value = true
   sendError.value = ''
 
   try {
-    const id = await createOrder(tableNumber.value, payload())
+    // El mismo token en cada reintento evita que un corte de conexión duplique el pedido.
+    const id = await createOrder(tableNumber.value, payload(), name, submitToken(tableNumber.value))
 
+    setName(name)
+    clearSubmitToken(tableNumber.value)
     setLastOrder(tableNumber.value, id)
     clear()
     sheetOpen.value = false
@@ -435,7 +454,22 @@ onUnmounted(() => {
         <span class="text-xl font-semibold tabular-nums">{{ formatPrice(total) }}</span>
       </p>
 
-      <PaymentInfo :settings="settings" />
+      <div class="border-t border-rule pt-4">
+        <label for="customer-name" class="mb-1.5 block text-sm font-medium">Tu nombre</label>
+        <input
+          id="customer-name"
+          v-model="customerName"
+          type="text"
+          maxlength="60"
+          autocomplete="given-name"
+          placeholder="Para que el personal sepa de quién es"
+          class="field"
+        />
+      </div>
+
+      <div class="mt-4">
+        <PaymentInfo :settings="settings" />
+      </div>
 
       <p v-if="sendError" class="mt-4 text-sm font-medium text-accent-deep" role="alert">
         {{ sendError }}
