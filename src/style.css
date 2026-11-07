@@ -1,12 +1,119 @@
 @import "tailwindcss";
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource-variable/fraunces/opsz-italic.css";
+@import "@fontsource-variable/instrument-sans/wght.css";
 
-* {
-  box-sizing: border-box;
+/*
+  Tema del menú.
+  Para adaptar el diseño a otro local, alcanza con cambiar estos valores:
+  papel, tinta y el color de acento.
+*/
+@theme {
+  --color-paper: #f4efe6;
+  --color-paper-deep: #e9e2d3;
+  --color-ink: #1b1814;
+  --color-ink-soft: #5b534a;
+  --color-rule: #cdc4b2;
+  --color-accent: #c8381a;
+  --color-accent-deep: #a52d14;
+  --color-open: #2c7a4b;
+
+  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  font-family: Inter, system-ui, sans-serif;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Ancho y márgenes laterales de cada bloque de la página */
+  .wrap {
+    @apply mx-auto w-full max-w-4xl px-5 sm:px-8;
+  }
+
+  /* Acción rápida de la botonera superior */
+  .action {
+    @apply flex flex-1 flex-col items-center gap-1.5 px-1 py-3.5 text-[13px] font-medium
+      text-ink transition-colors hover:bg-paper-deep;
+  }
+
+  .btn-solid {
+    @apply inline-flex items-center justify-center gap-2 rounded-[3px] bg-accent px-5 py-3.5
+      text-[15px] font-semibold text-white transition-colors hover:bg-accent-deep
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .field {
+    @apply w-full rounded-[3px] border border-rule bg-white/70 px-3 py-3 text-[15px]
+      text-ink outline-none transition-colors placeholder:text-ink-soft/70 focus:border-ink;
+  }
+
+  /* Puntos guía entre el nombre y el precio, como en una carta impresa */
+  .leader {
+    flex: 1 1 auto;
+    min-width: 1rem;
+    border-bottom: 2px dotted color-mix(in oklab, var(--color-ink) 38%, transparent);
+    transform: translateY(-0.28em);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Hoja inferior (horarios, wifi y opinión) */
+.sheet-enter-active,
+.sheet-leave-active {
+  transition: opacity 0.2s ease;
+}
+.sheet-enter-active .sheet-panel,
+.sheet-leave-active .sheet-panel {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sheet-enter-from,
+.sheet-leave-to {
+  opacity: 0;
+}
+.sheet-enter-from .sheet-panel,
+.sheet-leave-to .sheet-panel {
+  transform: translateY(2rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-enter-active,
+  .sheet-leave-active,
+  .sheet-enter-active .sheet-panel,
+  .sheet-leave-active .sheet-panel {
+    transition: none;
+  }
 }
