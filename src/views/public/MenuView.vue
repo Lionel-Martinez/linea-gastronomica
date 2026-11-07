@@ -16,6 +16,25 @@ import {
   X
 } from '@lucide/vue'
 import menuData from '../../data/menu.json'
+import { loadMenu } from '../../lib/api'
+import { formatPrice } from '../../lib/format'
+import { isSupabaseConfigured } from '../../lib/supabase'
+
+interface MenuCategory {
+  id: string
+  name: string
+}
+
+interface MenuProduct {
+  id: string | number
+  name: string
+  description: string
+  price: number
+  category: string
+  image: string
+  featured: boolean
+  available: boolean
+}
 
 interface Shift {
   open: string
@@ -51,7 +70,37 @@ const wifi = business.wifi
 const contact = business.contact
 const social = business.social
 const links = business.links
-const categories = menuData.categories.filter((category) => category.id !== 'all')
+// Datos de ejemplo (menu.json). Si hay Supabase configurado se reemplazan por los reales,
+// así lo que el personal edita (precios, "Agotado") se ve también en la carta.
+const allCategories = ref<MenuCategory[]>(menuData.categories)
+const products = ref<MenuProduct[]>(menuData.products)
+const categories = computed(() => allCategories.value.filter((category) => category.id !== 'all'))
+
+async function loadLiveMenu() {
+  if (!isSupabaseConfigured) return
+
+  try {
+    const live = await loadMenu()
+    if (!live.products.length) return
+
+    allCategories.value = [
+      { id: 'all', name: menuData.categories.find((c) => c.id === 'all')?.name ?? 'Todo' },
+      ...live.categories.map((category) => ({ id: category.id, name: category.name }))
+    ]
+    products.value = live.products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      category: product.category_id,
+      image: product.image,
+      featured: product.featured,
+      available: product.available
+    }))
+  } catch {
+    // Sin conexión o sin configurar: se queda la carta de ejemplo.
+  }
+}
 
 const selectedCategory = ref('all')
 const search = ref('')
@@ -132,7 +181,7 @@ const normalize = (text: string) =>
 const visibleProducts = computed(() => {
   const term = normalize(search.value.trim())
 
-  return menuData.products.filter((product) => {
+  return products.value.filter((product) => {
     if (!term) return true
 
     return (
@@ -143,7 +192,7 @@ const visibleProducts = computed(() => {
 })
 
 const groups = computed(() =>
-  categories
+  categories.value
     .filter(
       (category) =>
         selectedCategory.value === 'all' || category.id === selectedCategory.value
@@ -158,19 +207,13 @@ const groups = computed(() =>
 )
 
 const featuredProducts = computed(() =>
-  menuData.products.filter((product) => product.featured && product.available)
+  products.value.filter((product) => product.featured && product.available)
 )
 
 const showFeatured = computed(
   () => selectedCategory.value === 'all' && !search.value && featuredProducts.value.length
 )
 
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: business.currency,
-    maximumFractionDigits: 0
-  }).format(price)
 
 function selectCategory(id: string, event: Event) {
   selectedCategory.value = id
@@ -329,6 +372,7 @@ watch(activeModal, (value) => {
 })
 
 onMounted(() => {
+  void loadLiveMenu()
   document.title = `${business.name} · Menú`
   clock = window.setInterval(() => {
     now.value = new Date()
@@ -435,7 +479,7 @@ onUnmounted(() => {
       <div class="wrap">
         <div class="no-scrollbar -mx-1 flex gap-6 overflow-x-auto px-1">
           <button
-            v-for="category in menuData.categories"
+            v-for="category in allCategories"
             :key="category.id"
             type="button"
             class="relative shrink-0 py-3.5 text-sm font-medium transition-colors"
@@ -469,11 +513,13 @@ onUnmounted(() => {
             class="w-[46%] shrink-0 snap-start sm:w-52"
           >
             <img
+              v-if="product.image"
               :src="product.image"
               alt=""
               loading="lazy"
               class="aspect-[4/5] w-full rounded-[3px] bg-paper-deep object-cover"
             />
+            <div v-else class="aspect-[4/5] w-full rounded-[3px] bg-paper-deep" aria-hidden="true"></div>
             <h3 class="font-display mt-3 text-lg font-medium leading-snug">
               {{ product.name }}
             </h3>
@@ -505,12 +551,14 @@ onUnmounted(() => {
             class="flex gap-4 py-4"
           >
             <img
+              v-if="product.image"
               :src="product.image"
               alt=""
               loading="lazy"
               class="size-[72px] shrink-0 rounded-[3px] bg-paper-deep object-cover"
               :class="product.available ? '' : 'opacity-45 grayscale'"
             />
+            <div v-else class="size-[72px] shrink-0 rounded-[3px] bg-paper-deep" aria-hidden="true"></div>
 
             <div class="min-w-0 flex-1">
               <div class="flex items-baseline gap-2">
