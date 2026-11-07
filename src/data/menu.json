@@ -1,0 +1,157 @@
+{
+  "business": {
+    "name": "Café Aurora",
+    "description": "Un lugar para disfrutar cada momento.",
+    "address": "San Ramón de la Nueva Orán, Salta",
+    "schedule": {
+      "timezone": "America/Argentina/Buenos_Aires",
+      "days": [
+  {
+    "id": 0,
+    "name": "Domingo",
+    "closed": true,
+    "shifts": []
+  },
+  {
+    "id": 1,
+    "name": "Lunes",
+    "closed": false,
+    "shifts": [
+      { "open": "08:00", "close": "21:00" }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Martes",
+    "closed": false,
+    "shifts": [
+      { "open": "08:00", "close": "12:00" },
+      { "open": "16:00", "close": "21:00" }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Miércoles",
+    "closed": false,
+    "shifts": [
+      { "open": "08:00", "close": "21:00" }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Jueves",
+    "closed": false,
+    "shifts": [
+      { "open": "08:00", "close": "21:00" }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Viernes",
+    "closed": false,
+    "shifts": [
+      { "open": "08:00", "close": "22:00" }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Sábado",
+    "closed": false,
+    "shifts": [
+      { "open": "09:00", "close": "22:00" }
+    ]
+  }
+]
+},
+  "wifi": {
+    "available": true,
+    "name": "CafeAurora_WiFi",
+    "password": "cafe2026"
+  },
+  "currency": "ARS",
+  "contact": {
+  "whatsapp": "3878342800",
+  "phone": "",
+  "email": "liojose@gmail.com"
+},
+"social": {
+  "instagram": "cafeaurora",
+  "facebook": "cafeaurora",
+  "tiktok": "cafeaurora"
+},
+"links": {
+  "googleMaps": "",
+  "googleReviews": ""
+}
+},
+  "categories": [
+    { "id": "all", "name": "Todos" },
+    { "id": "coffee", "name": "Cafetería" },
+    { "id": "cold", "name": "Bebidas frías" },
+    { "id": "bakery", "name": "Pastelería" },
+    { "id": "breakfast", "name": "Desayunos" },
+    { "id": "salty", "name": "Salados" }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Cappuccino",
+      "description": "Espresso con leche vaporizada y espuma cremosa.",
+      "price": 3500,
+      "category": "coffee",
+      "image": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=700",
+      "featured": true,
+      "available": true
+    },
+    {
+      "id": 2,
+      "name": "Latte",
+      "description": "Café espresso combinado con leche cremosa.",
+      "price": 3800,
+      "category": "coffee",
+      "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=700",
+      "featured": true,
+      "available": true
+    },
+    {
+      "id": 3,
+      "name": "Frappuccino",
+      "description": "Bebida fría de café con hielo y crema.",
+      "price": 4500,
+      "category": "cold",
+      "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=700",
+      "featured": false,
+      "available": true
+    },
+    {
+      "id": 4,
+      "name": "Medialunas",
+      "description": "Dos medialunas de manteca recién horneadas.",
+      "price": 2800,
+      "category": "bakery",
+      "image": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=700",
+      "featured": true,
+      "available": true
+    },
+    {
+      "id": 5,
+      "name": "Cheesecake",
+      "description": "Porción de cheesecake con frutos rojos.",
+      "price": 5200,
+      "category": "bakery",
+      "image": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=700",
+      "featured": false,
+      "available": true
+    },
+    {
+      "id": 6,
+      "name": "Tostado clásico",
+      "description": "Jamón y queso en pan tostado.",
+      "price": 4800,
+      "category": "salty",
+      "image": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=700",
+      "featured": false,
+      "available": true
+    }
+  ]
+}
