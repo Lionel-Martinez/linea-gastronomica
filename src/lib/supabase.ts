@@ -8,7 +8,12 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 export const isSupabaseConfigured = Boolean(url && key)
 
 export const supabase: SupabaseClient | null =
-  url && key ? createClient(url, key) : null
+  url && key
+    ? createClient(url, key, {
+        // Los datos cambian seguido (mesas, precios, pedidos): nunca se reutiliza una respuesta guardada.
+        global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) }
+      })
+    : null
 
 export function db(): SupabaseClient {
   if (!supabase) throw new Error('not_configured')

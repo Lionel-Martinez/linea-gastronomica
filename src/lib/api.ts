@@ -34,6 +34,8 @@ export function friendlyError(error: unknown): string {
     return 'El email o la contraseña no son correctos.'
   if (message.includes('not_staff'))
     return 'Tu cuenta existe, pero no tiene permiso de personal.'
+  if (message.includes('not_saved'))
+    return 'Los cambios no quedaron guardados en la base. Probá de nuevo; si sigue igual, avisá a soporte.'
   if (message.includes('not_allowed'))
     return 'No se pudo guardar: no tenés permiso o el registro ya no existe.'
   if (message.includes('not_configured'))

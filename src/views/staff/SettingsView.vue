@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { friendlyError, loadSettings, saveSettings } from '../../lib/api'
 import { businessName } from '../../lib/format'
 import { refreshPanel } from '../../lib/panel'
@@ -18,6 +19,7 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const saved = ref(false)
+const savedTables = ref(0)
 
 async function submit() {
   if (saving.value) return
@@ -59,9 +61,15 @@ async function submit() {
       payment_methods: PAYMENT_METHODS.filter((method) => form.payment_methods.includes(method)),
       whatsapp_number: whatsapp
     })
-    form.table_count = tables
-    form.payment_cbu = cbu
-    form.whatsapp_number = whatsapp
+
+    // Se vuelve a leer de la base: lo que se muestra es lo que realmente quedó guardado.
+    const fresh = await loadSettings()
+    if (fresh.table_count !== tables || fresh.ordering_enabled !== form.ordering_enabled) {
+      throw new Error('not_saved')
+    }
+
+    Object.assign(form, fresh, { payment_methods: [...fresh.payment_methods] })
+    savedTables.value = fresh.table_count
     saved.value = true
     void refreshPanel()
   } catch (e) {
@@ -111,7 +119,10 @@ onMounted(async () => {
       <div class="border-t border-ink pt-5">
         <label for="s-tables" class="mb-1.5 block text-sm font-medium">Cantidad de mesas</label>
         <input id="s-tables" v-model.number="form.table_count" type="number" min="1" max="200" class="field" />
-        <p class="mt-1.5 text-sm text-ink-soft">Los pedidos solo se aceptan para mesas de 1 a este número.</p>
+        <p class="mt-1.5 text-sm text-ink-soft">
+          Los pedidos solo se aceptan para mesas de 1 a este número. Los QR de cada mesa están en
+          <RouterLink :to="{ name: 'staff-qr' }" class="underline underline-offset-4">Códigos QR</RouterLink>.
+        </p>
       </div>
 
       <fieldset class="space-y-3 border-t border-ink pt-5">
@@ -162,7 +173,10 @@ onMounted(async () => {
       </fieldset>
 
       <p v-if="error" class="text-sm font-medium text-accent-deep" role="alert">{{ error }}</p>
-      <p v-if="saved" class="text-sm font-medium text-open" role="status">Cambios guardados.</p>
+      <p v-if="saved" class="text-sm font-medium text-open" role="status">
+        Cambios guardados. El local tiene {{ savedTables }} mesas.
+        <RouterLink :to="{ name: 'staff-qr' }" class="underline underline-offset-4">Ver los códigos QR</RouterLink>
+      </p>
 
       <button type="submit" class="btn-solid w-full sm:w-auto" :disabled="saving">
         {{ saving ? 'Guardando…' : 'Guardar cambios' }}

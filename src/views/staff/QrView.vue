@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { Printer } from '@lucide/vue'
+import { Printer, RefreshCw } from '@lucide/vue'
 import QRCode from 'qrcode'
 import { loadSettings } from '../../lib/api'
 import { businessName } from '../../lib/format'
@@ -44,8 +44,8 @@ async function build() {
 
 watch(cleanBase, () => void build())
 
-onMounted(async () => {
-  document.title = `Códigos QR · ${businessName}`
+async function reload() {
+  error.value = ''
 
   try {
     const settings = await loadSettings()
@@ -55,6 +55,11 @@ onMounted(async () => {
   } catch {
     error.value = 'No pudimos cargar la cantidad de mesas.'
   }
+}
+
+onMounted(() => {
+  document.title = `Códigos QR · ${businessName}`
+  void reload()
 })
 </script>
 
@@ -62,15 +67,24 @@ onMounted(async () => {
   <main class="wrap max-w-6xl pb-16 pt-8 print:max-w-none print:pt-0">
     <div class="flex flex-wrap items-center justify-between gap-3 print:hidden">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Códigos QR</h1>
-      <button type="button" class="btn-line btn-small" :disabled="!codes.length" @click="print">
-        <Printer class="size-4" aria-hidden="true" />
-        Imprimir
-      </button>
+      <div class="flex gap-2">
+        <button type="button" class="btn-line btn-small" @click="reload">
+          <RefreshCw class="size-4" aria-hidden="true" />
+          Actualizar
+        </button>
+        <button type="button" class="btn-line btn-small" :disabled="!codes.length" @click="print">
+          <Printer class="size-4" aria-hidden="true" />
+          Imprimir
+        </button>
+      </div>
     </div>
 
     <div class="mt-6 max-w-xl print:hidden">
       <label for="qr-base" class="mb-1.5 block text-sm font-medium">Dirección de la carta</label>
       <input id="qr-base" v-model="baseUrl" type="url" inputmode="url" class="field" />
+      <p v-if="ordering" class="mt-3 text-sm font-medium">
+        Este local tiene {{ tableCount }} mesas. Si cambiás la cantidad en Ajustes, volvé acá y se actualiza.
+      </p>
       <p class="mt-1.5 text-sm text-ink-soft">
         El QR de la carta abre esta dirección y cada mesa, esta dirección + /mesa/N. Usá el dominio definitivo antes de imprimir.
       </p>
