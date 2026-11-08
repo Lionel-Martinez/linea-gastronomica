@@ -26,5 +26,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 1. `update-02-nombre-y-duplicados.sql`: nombre del cliente obligatorio y protección contra pedidos duplicados.
 2. `update-03-pagos-whatsapp-interruptor.sql`: formas de pago, WhatsApp, interruptor de pedidos, rol de encargado y pedidos por mesa. Quienes ya estén en `staff` pasan a ser encargados.
+3. `update-04-pedidos-a-distancia.sql` (Etapa 3A): retiro y delivery, zonas de envío, código de seguimiento, repartos con orden de paradas, límite y bloqueo por teléfono y borrado de datos personales. No cambia los pedidos por mesa. Retiro y delivery quedan apagados hasta que el encargado los encienda.
+
+Privacidad: teléfono, dirección y referencia se borran solos pasado el plazo que elige el encargado (7, 15 o 30 días, 15 por defecto). Si el proyecto tiene la extensión `pg_cron` activada, se ejecuta una vez por día; si no, se ejecuta cada vez que entra un pedido a distancia.
 
 Un proyecto nuevo solo necesita `schema.sql` y `seed.sql`.
