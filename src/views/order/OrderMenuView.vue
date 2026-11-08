@@ -10,28 +10,23 @@ import { useCart } from '../../composables/useCart'
 import {
   createOrder,
   friendlyError,
-  getOrder,
+  getTableOrders,
   isProductUnavailable,
   loadMenu
 } from '../../lib/api'
-import { businessName, formatPrice } from '../../lib/format'
-import {
-  clearLastOrder,
-  clearSubmitToken,
-  getLastOrder,
-  getName,
-  setLastOrder,
-  setName,
-  submitToken
-} from '../../lib/lastOrder'
+import { businessName, formatClock, formatPrice } from '../../lib/format'
+import { clearSubmitToken, getName, setName, submitToken } from '../../lib/lastOrder'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
-  ACTIVE_STATUSES,
+  PAYMENT_HINT,
+  PAYMENT_LABEL,
+  PAYMENT_METHODS,
   STATUS_LABEL,
   type Category,
+  type PaymentMethod,
   type Product,
-  type PublicOrder,
-  type Settings
+  type Settings,
+  type TableOrder
 } from '../../lib/types'
 
 const route = useRoute()
@@ -72,6 +67,12 @@ async function load() {
     settings.value = data.settings
     loadError.value = ''
 
+    // Local sin pedidos activados (plan solo-carta): se muestra la carta normal.
+    if (!data.settings.ordering_enabled) {
+      await router.replace({ name: 'menu' })
+      return
+    }
+
     const removed = reconcile(data.products)
     if (removed.length) {
       notice.value = `Quitamos de tu pedido lo que ya no está disponible: ${removed.join(', ')}.`
@@ -88,25 +89,25 @@ function retry() {
   void load()
 }
 
-/* ---------- Pedido en curso (si el cliente recargó o volvió) ---------- */
+/* ---------- Pedidos de esta mesa (también desde otro celular) ---------- */
 
-const activeOrder = ref<PublicOrder | null>(null)
+const tableOrders = ref<TableOrder[]>([])
 
-async function checkActiveOrder() {
-  activeOrder.value = null
-
-  const id = tableNumber.value ? getLastOrder(tableNumber.value) : null
-  if (!id || !isSupabaseConfigured) return
+async function checkTableOrders() {
+  if (!tableNumber.value || !isSupabaseConfigured) {
+    tableOrders.value = []
+    return
+  }
 
   try {
-    const order = await getOrder(id)
-
-    if (order && ACTIVE_STATUSES.includes(order.status)) activeOrder.value = order
-    else clearLastOrder(tableNumber.value)
+    tableOrders.value = await getTableOrders(tableNumber.value)
   } catch {
-    // Sin conexión: simplemente no mostramos el aviso.
+    // Sin conexión: simplemente no mostramos la lista.
   }
 }
+
+const itemsText = (order: TableOrder) =>
+  order.items.map((item) => `${item.quantity}× ${item.name}`).join(', ')
 
 /* ---------- Carta ---------- */
 
@@ -145,6 +146,22 @@ function selectCategory(id: string, event: Event) {
 const sheetOpen = ref(false)
 const sending = ref(false)
 const customerName = ref(getName())
+const method = ref<PaymentMethod | ''>('')
+
+// Formas de pago que el local aceptó en Ajustes, en orden fijo.
+const enabledMethods = computed(() =>
+  PAYMENT_METHODS.filter((m) => settings.value?.payment_methods.includes(m))
+)
+
+// Con una sola opción se elige sola; si la elegida deja de estar disponible, se limpia.
+watch(
+  enabledMethods,
+  (list) => {
+    if (method.value && !list.includes(method.value)) method.value = ''
+    if (!method.value && list.length === 1) method.value = list[0]!
+  },
+  { immediate: true }
+)
 const sendError = ref('')
 
 function openCart() {
@@ -163,16 +180,20 @@ async function send() {
     return
   }
 
+  if (!method.value) {
+    sendError.value = 'Elegí cómo vas a pagar.'
+    return
+  }
+
   sending.value = true
   sendError.value = ''
 
   try {
     // El mismo token en cada reintento evita que un corte de conexión duplique el pedido.
-    const id = await createOrder(tableNumber.value, payload(), name, submitToken(tableNumber.value))
+    const id = await createOrder(tableNumber.value, payload(), name, submitToken(tableNumber.value), method.value)
 
     setName(name)
     clearSubmitToken(tableNumber.value)
-    setLastOrder(tableNumber.value, id)
     clear()
     sheetOpen.value = false
 
@@ -191,20 +212,23 @@ watch(count, (value) => {
 })
 
 watch(tableNumber, () => {
-  void checkActiveOrder()
+  void checkTableOrders()
 })
 
 /* ---------- Ciclo de vida ---------- */
 
 function onVisible() {
-  if (document.visibilityState === 'visible') void load()
+  if (document.visibilityState === 'visible') {
+    void load()
+    void checkTableOrders()
+  }
 }
 
 onMounted(() => {
   document.title = `Mesa ${tableNumber.value || ''} · ${businessName}`.replace('  ', ' ')
 
   void load()
-  void checkActiveOrder()
+  void checkTableOrders()
   document.addEventListener('visibilitychange', onVisible)
 })
 
@@ -261,21 +285,32 @@ onUnmounted(() => {
 
     <!-- Carta con pedido -->
     <template v-else>
-      <div v-if="activeOrder" class="wrap pt-6">
-        <RouterLink
-          :to="{ name: 'order-status', params: { id: activeOrder.id } }"
-          class="flex items-center justify-between gap-3 border border-ink bg-paper-deep px-4 py-3 transition-colors hover:bg-rule/40"
-        >
-          <span class="text-[15px]">
-            Tu pedido está
-            <strong class="font-semibold">{{ STATUS_LABEL[activeOrder.status].toLowerCase() }}</strong>
-          </span>
-          <span class="inline-flex items-center gap-1 text-sm font-semibold">
-            Ver estado
-            <ChevronRight class="size-4" aria-hidden="true" />
-          </span>
-        </RouterLink>
-      </div>
+      <section v-if="tableOrders.length" class="wrap pt-6" aria-labelledby="table-orders-title">
+        <h2 id="table-orders-title" class="font-display text-xl font-semibold leading-none">
+          Pedidos de esta mesa
+        </h2>
+
+        <ul class="mt-3 space-y-2">
+          <li v-for="order in tableOrders" :key="order.id">
+            <RouterLink
+              :to="{ name: 'order-status', params: { id: order.id } }"
+              class="block border border-ink bg-paper-deep px-4 py-3 transition-colors hover:bg-rule/40"
+            >
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[15px]">
+                  <strong class="font-semibold">{{ STATUS_LABEL[order.status] }}</strong>
+                  <span class="ml-2 tabular-nums text-ink-soft">{{ formatClock(order.created_at) }}</span>
+                </span>
+                <span class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold">
+                  Ver estado
+                  <ChevronRight class="size-4" aria-hidden="true" />
+                </span>
+              </span>
+              <span class="mt-1 block text-sm text-ink-soft">{{ itemsText(order) }}</span>
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
 
       <div v-if="notice" class="wrap pt-6">
         <p class="border border-accent px-4 py-3 text-[15px] text-accent-deep" role="status">
@@ -467,7 +502,33 @@ onUnmounted(() => {
         />
       </div>
 
-      <div class="mt-4">
+      <div class="mt-4 border-t border-rule pt-4" role="group" aria-labelledby="pay-method-label">
+        <p id="pay-method-label" class="mb-2 text-sm font-medium">¿Cómo vas a pagar?</p>
+
+        <p v-if="!enabledMethods.length" class="text-sm text-accent-deep">
+          El local todavía no configuró formas de pago. Consultá con el personal.
+        </p>
+
+        <div class="grid grid-cols-2 gap-2">
+          <label
+            v-for="option in enabledMethods"
+            :key="option"
+            class="flex cursor-pointer items-center justify-center border px-3 py-3 text-[15px] font-semibold transition-colors"
+            :class="
+              method === option
+                ? 'border-ink bg-ink text-paper'
+                : 'border-ink/40 hover:border-ink'
+            "
+          >
+            <input v-model="method" type="radio" name="payment-method" :value="option" class="sr-only" />
+            {{ PAYMENT_LABEL[option] }}
+          </label>
+        </div>
+
+        <p v-if="method" class="mt-2 text-sm text-ink-soft">{{ PAYMENT_HINT[method] }}</p>
+      </div>
+
+      <div v-if="method === 'transfer'" class="mt-4">
         <PaymentInfo :settings="settings" />
       </div>
 

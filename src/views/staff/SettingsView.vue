@@ -2,8 +2,18 @@
 import { onMounted, reactive, ref } from 'vue'
 import { friendlyError, loadSettings, saveSettings } from '../../lib/api'
 import { businessName } from '../../lib/format'
+import { refreshPanel } from '../../lib/panel'
+import { PAYMENT_LABEL, PAYMENT_METHODS, type PaymentMethod } from '../../lib/types'
 
-const form = reactive({ table_count: 10, payment_alias: '', payment_cbu: '', payment_holder: '' })
+const form = reactive({
+  table_count: 10,
+  payment_alias: '',
+  payment_cbu: '',
+  payment_holder: '',
+  ordering_enabled: true,
+  payment_methods: ['transfer', 'cash'] as PaymentMethod[],
+  whatsapp_number: ''
+})
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -24,6 +34,17 @@ async function submit() {
     return
   }
 
+  const whatsapp = form.whatsapp_number.replace(/[\s+()-]/g, '')
+  if (whatsapp && !/^\d{8,15}$/.test(whatsapp)) {
+    error.value = 'El WhatsApp tiene que tener entre 8 y 15 números, con código de país. Ej.: 5493878123456.'
+    return
+  }
+
+  if (form.ordering_enabled && !form.payment_methods.length) {
+    error.value = 'Elegí al menos una forma de pago, o desactivá los pedidos.'
+    return
+  }
+
   saving.value = true
   saved.value = false
   error.value = ''
@@ -33,11 +54,16 @@ async function submit() {
       table_count: tables,
       payment_alias: form.payment_alias.trim(),
       payment_cbu: cbu,
-      payment_holder: form.payment_holder.trim()
+      payment_holder: form.payment_holder.trim(),
+      ordering_enabled: form.ordering_enabled,
+      payment_methods: PAYMENT_METHODS.filter((method) => form.payment_methods.includes(method)),
+      whatsapp_number: whatsapp
     })
     form.table_count = tables
     form.payment_cbu = cbu
+    form.whatsapp_number = whatsapp
     saved.value = true
+    void refreshPanel()
   } catch (e) {
     error.value = friendlyError(e)
   } finally {
@@ -49,7 +75,8 @@ onMounted(async () => {
   document.title = `Ajustes · ${businessName}`
 
   try {
-    Object.assign(form, await loadSettings())
+    const data = await loadSettings()
+    Object.assign(form, data, { payment_methods: [...data.payment_methods] })
   } catch (e) {
     error.value = friendlyError(e)
   } finally {
@@ -67,15 +94,40 @@ onMounted(async () => {
     </p>
 
     <form v-else class="mt-8 max-w-xl space-y-6" @submit.prevent="submit">
-      <div>
+      <fieldset class="space-y-2">
+        <legend class="font-display pr-3 text-xl font-semibold">Pedidos desde la mesa</legend>
+        <label class="flex items-start gap-3 text-[15px]">
+          <input v-model="form.ordering_enabled" type="checkbox" class="mt-1 size-4 accent-accent" />
+          <span>
+            Recibir pedidos desde el QR de cada mesa
+            <span class="mt-0.5 block text-sm text-ink-soft">
+              Si lo desactivás, el local queda solo con la carta digital (que sigue siendo editable):
+              no se pueden hacer pedidos y desaparecen la pantalla de pedidos y los QR de mesa.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+
+      <div class="border-t border-ink pt-5">
         <label for="s-tables" class="mb-1.5 block text-sm font-medium">Cantidad de mesas</label>
         <input id="s-tables" v-model.number="form.table_count" type="number" min="1" max="200" class="field" />
         <p class="mt-1.5 text-sm text-ink-soft">Los pedidos solo se aceptan para mesas de 1 a este número.</p>
       </div>
 
+      <fieldset class="space-y-3 border-t border-ink pt-5">
+        <legend class="font-display pr-3 text-xl font-semibold">Formas de pago</legend>
+        <p class="text-sm text-ink-soft">
+          El cliente elige una al pedir. No hay pago online: se cobra en el local o por transferencia.
+        </p>
+        <label v-for="method in PAYMENT_METHODS" :key="method" class="flex items-center gap-3 text-[15px]">
+          <input v-model="form.payment_methods" type="checkbox" :value="method" class="size-4 accent-accent" />
+          {{ PAYMENT_LABEL[method] }}
+        </label>
+      </fieldset>
+
       <fieldset class="space-y-4 border-t border-ink pt-5">
-        <legend class="font-display pr-3 text-xl font-semibold">Datos para el pago</legend>
-        <p class="text-sm text-ink-soft">Se muestran al cliente al pedir. No hay pago online.</p>
+        <legend class="font-display pr-3 text-xl font-semibold">Datos para transferencias</legend>
+        <p class="text-sm text-ink-soft">Se muestran al cliente solo si elige pagar por transferencia.</p>
 
         <div>
           <label for="s-alias" class="mb-1.5 block text-sm font-medium">Alias</label>
@@ -90,6 +142,22 @@ onMounted(async () => {
         <div>
           <label for="s-holder" class="mb-1.5 block text-sm font-medium">Titular</label>
           <input id="s-holder" v-model="form.payment_holder" type="text" maxlength="80" class="field" />
+        </div>
+
+        <div>
+          <label for="s-wa" class="mb-1.5 block text-sm font-medium">WhatsApp del local (para comprobantes)</label>
+          <input
+            id="s-wa"
+            v-model="form.whatsapp_number"
+            type="tel"
+            inputmode="numeric"
+            placeholder="5493878123456"
+            class="field"
+          />
+          <p class="mt-1.5 text-sm text-ink-soft">
+            Con código de país, sin + ni espacios. Argentina: 549 + código de área + número.
+            El cliente ve un botón para enviar el comprobante a este número.
+          </p>
         </div>
       </fieldset>
 

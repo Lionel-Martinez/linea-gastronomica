@@ -1,21 +1,36 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { LogOut } from '@lucide/vue'
 import { onSignedOut, sessionEmail, signOut } from '../../lib/auth'
 import { businessName } from '../../lib/format'
+import { panel, refreshPanel } from '../../lib/panel'
 
 const router = useRouter()
+const route = useRoute()
 const email = ref('')
 
 let stopListening: (() => void) | undefined
 
-const links = [
-  { name: 'staff-orders', label: 'Pedidos' },
-  { name: 'staff-products', label: 'Productos' },
-  { name: 'staff-settings', label: 'Ajustes' },
-  { name: 'staff-qr', label: 'Códigos QR' }
-]
+// Sin pedidos activados (plan solo-carta) no hay pantalla de pedidos; los ajustes son solo de encargados.
+const links = computed(() =>
+  [
+    { name: 'staff-orders', label: 'Pedidos', show: panel.ordering },
+    { name: 'staff-products', label: 'Productos', show: true },
+    { name: 'staff-settings', label: 'Ajustes', show: panel.manager },
+    { name: 'staff-qr', label: 'Códigos QR', show: true }
+  ].filter((link) => link.show)
+)
+
+watch(
+  () => [panel.ready, panel.ordering, route.name] as const,
+  ([ready, ordering, name]) => {
+    if (ready && !ordering && name === 'staff-orders') {
+      void router.replace({ name: 'staff-products' })
+    }
+  },
+  { immediate: true }
+)
 
 async function logout() {
   await signOut()
@@ -24,6 +39,7 @@ async function logout() {
 
 onMounted(async () => {
   email.value = await sessionEmail()
+  void refreshPanel()
 
   // Si la sesión vence o se cierra en otra pestaña, volvemos al login.
   stopListening = onSignedOut(() => {

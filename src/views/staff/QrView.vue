@@ -7,6 +7,7 @@ import { businessName } from '../../lib/format'
 
 const baseUrl = ref(window.location.origin)
 const tableCount = ref(0)
+const ordering = ref(true)
 const codes = ref<{ key: string; title: string; caption: string; url: string; image: string }[]>([])
 const error = ref('')
 
@@ -15,7 +16,7 @@ const print = () => window.print()
 const cleanBase = computed(() => baseUrl.value.trim().replace(/\/+$/, ''))
 
 async function build() {
-  if (!tableCount.value || !/^https?:\/\//i.test(cleanBase.value)) {
+  if (!/^https?:\/\//i.test(cleanBase.value)) {
     codes.value = []
     return
   }
@@ -32,7 +33,7 @@ async function build() {
   // Primero el QR de la carta general (solo consulta) y después uno por mesa (para pedir).
   const list = await Promise.all([
     make('menu', 'Carta', 'Escaneá para ver la carta', `${base}/`),
-    ...Array.from({ length: tableCount.value }, (_, index) =>
+    ...Array.from({ length: ordering.value ? tableCount.value : 0 }, (_, index) =>
       make(`t${index + 1}`, `Mesa ${index + 1}`, 'Escaneá para pedir', `${base}/mesa/${index + 1}`)
     )
   ])
@@ -47,7 +48,9 @@ onMounted(async () => {
   document.title = `Códigos QR · ${businessName}`
 
   try {
-    tableCount.value = (await loadSettings()).table_count
+    const settings = await loadSettings()
+    tableCount.value = settings.table_count
+    ordering.value = settings.ordering_enabled
     await build()
   } catch {
     error.value = 'No pudimos cargar la cantidad de mesas.'

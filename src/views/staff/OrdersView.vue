@@ -3,7 +3,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Volume2, VolumeX } from '@lucide/vue'
 import { friendlyError, listOrders, setOrderStatus, subscribeOrders } from '../../lib/api'
 import { agoLabel, businessName, formatClock, formatPrice, minutesSince } from '../../lib/format'
-import { STATUS_LABEL, type Order, type OrderItem, type OrderStatus } from '../../lib/types'
+import {
+  PAYMENT_LABEL,
+  STATUS_LABEL,
+  type Order,
+  type OrderItem,
+  type OrderStatus
+} from '../../lib/types'
 
 const orders = ref<Order[]>([])
 const loading = ref(true)
@@ -307,6 +313,10 @@ onUnmounted(() => {
               <p class="mt-3 flex items-baseline justify-between text-sm">
                 <span class="text-ink-soft">Total</span>
                 <span class="font-semibold tabular-nums">{{ formatPrice(order.total) }}</span>
+              </p>
+              <p v-if="order.payment_method" class="mt-1 flex items-baseline justify-between text-sm">
+                <span class="text-ink-soft">Paga con</span>
+                <span class="font-semibold">{{ PAYMENT_LABEL[order.payment_method] }}</span>
               </p>
 
               <div class="mt-4 flex flex-wrap gap-2">

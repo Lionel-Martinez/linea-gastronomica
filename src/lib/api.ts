@@ -4,8 +4,10 @@ import type {
   Order,
   OrderStatus,
   Product,
+  PaymentMethod,
   PublicOrder,
-  Settings
+  Settings,
+  TableOrder
 } from './types'
 
 /* ---------- Errores ---------- */
@@ -20,6 +22,10 @@ export function friendlyError(error: unknown): string {
     return 'Esta mesa ya tiene varios pedidos esperando confirmación. Avisale al personal.'
   if (message.includes('product_unavailable'))
     return 'Algún producto ya no está disponible. Actualizamos la carta, revisá tu pedido.'
+  if (message.includes('ordering_disabled'))
+    return 'Por ahora este local no recibe pedidos desde la mesa. Pedile al personal.'
+  if (message.includes('invalid_payment'))
+    return 'Elegí una forma de pago de las disponibles.'
   if (message.includes('invalid_name'))
     return 'Escribí tu nombre (al menos 2 letras) para que el personal sepa de quién es el pedido.'
   if (message.includes('invalid_items'))
@@ -90,17 +96,27 @@ export async function createOrder(
   table: number,
   items: OrderLinePayload[],
   name: string,
-  token: string
+  token: string,
+  method: PaymentMethod
 ): Promise<string> {
   const { data, error } = await db().rpc('create_order', {
     p_table: table,
     p_items: items,
     p_name: name,
-    p_token: token
+    p_token: token,
+    p_method: method
   })
 
   if (error) throw error
   return data as string
+}
+
+/** Pedidos activos de una mesa (sin nombres). Sirve para volver a ver el estado desde cualquier celular. */
+export async function getTableOrders(table: number): Promise<TableOrder[]> {
+  const { data, error } = await db().rpc('table_orders', { p_table: table })
+
+  if (error) throw error
+  return (data as TableOrder[] | null) ?? []
 }
 
 export async function getOrder(id: string): Promise<PublicOrder | null> {
@@ -200,7 +216,10 @@ export async function saveSettings(settings: Settings) {
       table_count: settings.table_count,
       payment_alias: settings.payment_alias,
       payment_cbu: settings.payment_cbu,
-      payment_holder: settings.payment_holder
+      payment_holder: settings.payment_holder,
+      ordering_enabled: settings.ordering_enabled,
+      payment_methods: settings.payment_methods,
+      whatsapp_number: settings.whatsapp_number
     })
     .eq('id', 1)
     .select('id')

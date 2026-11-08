@@ -32,7 +32,7 @@ async function copy(id: string, value: string) {
   <section v-if="rows.length" class="border border-ink p-4" aria-labelledby="pay-title">
     <h3 id="pay-title" class="font-display text-xl font-semibold leading-none">Cómo pagar</h3>
     <p class="mt-2 text-sm text-ink-soft">
-      Podés pagar por transferencia. Esta página no procesa pagos.
+      Transferí a estos datos. Esta página no procesa pagos.
     </p>
 
     <dl class="mt-3 divide-y divide-rule border-y border-rule text-[15px]">

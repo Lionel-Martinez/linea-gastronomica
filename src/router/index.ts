@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { currentStaff } from '../lib/auth'
+import { currentStaff, isManager } from '../lib/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
     staff?: boolean
+    manager?: boolean
   }
 }
 
@@ -48,6 +49,7 @@ const router = createRouter({
         {
           path: 'ajustes',
           name: 'staff-settings',
+          meta: { manager: true },
           component: () => import('../views/staff/SettingsView.vue')
         },
         {
@@ -67,9 +69,14 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (!to.matched.some((record) => record.meta.staff)) return true
 
-  if (await currentStaff()) return true
+  if (!(await currentStaff())) return { name: 'staff-login', query: { redirect: to.fullPath } }
 
-  return { name: 'staff-login', query: { redirect: to.fullPath } }
+  // Los ajustes del local son solo para encargados.
+  if (to.matched.some((record) => record.meta.manager) && !(await isManager())) {
+    return { name: 'staff-orders' }
+  }
+
+  return true
 })
 
 export default router

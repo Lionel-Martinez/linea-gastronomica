@@ -29,6 +29,32 @@ as $$
   select exists (select 1 from public.staff where user_id = auth.uid());
 $$;
 
+-- Encargados: además de ser personal, pueden cambiar los ajustes del local
+-- (interruptor de pedidos, métodos de pago, mesas, WhatsApp). Los mozos no.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'staff' and column_name = 'is_manager'
+  ) then
+    alter table public.staff add column is_manager boolean not null default false;
+    -- Quienes ya estaban cargados pasan a ser encargados, para no perder acceso a Ajustes.
+    update public.staff set is_manager = true;
+  end if;
+end $$;
+
+create or replace function public.is_manager()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.staff where user_id = auth.uid() and is_manager
+  );
+$$;
+
 -- ---------- Menú ----------
 create table if not exists public.categories (
   id         text primary key,
@@ -58,6 +84,25 @@ create table if not exists public.settings (
   payment_cbu    text not null default '' check (char_length(payment_cbu) <= 40),
   payment_holder text not null default '' check (char_length(payment_holder) <= 80)
 );
+
+-- Interruptor de pedidos (plan solo-carta), métodos de pago aceptados y WhatsApp del local.
+alter table public.settings add column if not exists ordering_enabled boolean not null default true;
+alter table public.settings add column if not exists payment_methods  text[]  not null default array['transfer', 'cash'];
+alter table public.settings add column if not exists whatsapp_number  text    not null default '';
+
+do $$
+begin
+  alter table public.settings add constraint settings_methods_valid
+    check (payment_methods <@ array['transfer', 'card', 'qr', 'cash']::text[]);
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table public.settings add constraint settings_whatsapp_valid
+    check (whatsapp_number ~ '^[0-9]{0,15}$');
+exception when duplicate_object then null;
+end $$;
 
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
@@ -138,14 +183,14 @@ drop policy if exists products_write on public.products;
 create policy products_write on public.products
   for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
--- ajustes: lectura pública (el alias/CBU se muestra a los clientes), edición del personal
+-- ajustes: lectura pública (el alias/CBU se muestra a los clientes), edición solo de encargados
 drop policy if exists settings_read on public.settings;
 create policy settings_read on public.settings
   for select to anon, authenticated using (true);
 
 drop policy if exists settings_update on public.settings;
 create policy settings_update on public.settings
-  for update to authenticated using (public.is_staff()) with check (public.is_staff());
+  for update to authenticated using (public.is_manager()) with check (public.is_manager());
 
 -- pedidos: solo el personal los lee y les cambia el estado.
 -- No hay política de INSERT: los pedidos se crean únicamente con create_order().
@@ -173,6 +218,16 @@ grant select on public.orders, public.order_items to authenticated;
 grant update (status) on public.orders to authenticated;
 
 -- ---------- Nombre del cliente y protección contra duplicados ----------
+-- Cómo va a pagar el cliente (vacío en pedidos anteriores a esta versión).
+alter table public.orders add column if not exists payment_method text not null default '';
+
+do $$
+begin
+  alter table public.orders add constraint orders_payment_method_valid
+    check (payment_method in ('', 'transfer', 'card', 'qr', 'cash'));
+exception when duplicate_object then null;
+end $$;
+
 alter table public.orders add column if not exists customer_name text not null default '';
 alter table public.orders add column if not exists client_token  uuid;
 
@@ -188,17 +243,19 @@ create unique index if not exists orders_client_token_key
   on public.orders (client_token) where client_token is not null;
 
 -- ---------- Crear un pedido ----------
--- El cliente envía nombre, producto, cantidad y nota. Los precios se leen acá,
--- de la base, así que no se pueden manipular desde el navegador.
+-- El cliente envía nombre, forma de pago, producto, cantidad y nota. Los precios se
+-- leen acá, de la base, así que no se pueden manipular desde el navegador.
 -- p_token identifica el intento: si el cliente reintenta con el mismo token
 -- (porque se cortó la respuesta), se devuelve el pedido ya creado.
 drop function if exists public.create_order(int, jsonb);
+drop function if exists public.create_order(int, jsonb, text, uuid);
 
 create or replace function public.create_order(
-  p_table int,
-  p_items jsonb,
-  p_name  text,
-  p_token uuid default null
+  p_table  int,
+  p_items  jsonb,
+  p_name   text,
+  p_token  uuid default null,
+  p_method text default null
 )
 returns uuid
 language plpgsql
@@ -206,14 +263,16 @@ security definer
 set search_path = public
 as $$
 declare
-  v_tables int;
-  v_order  uuid;
-  v_name   text;
-  v_total  numeric(12, 2) := 0;
-  v_row    jsonb;
-  v_qty    int;
-  v_note   text;
-  v_prod   public.products%rowtype;
+  v_tables  int;
+  v_enabled boolean;
+  v_methods text[];
+  v_order   uuid;
+  v_name    text;
+  v_total   numeric(12, 2) := 0;
+  v_row     jsonb;
+  v_qty     int;
+  v_note    text;
+  v_prod    public.products%rowtype;
 begin
   -- Reintento: si ya existe un pedido con este token, es el mismo.
   if p_token is not null then
@@ -223,7 +282,13 @@ begin
     end if;
   end if;
 
-  select table_count into v_tables from public.settings where id = 1;
+  select table_count, ordering_enabled, payment_methods
+    into v_tables, v_enabled, v_methods
+    from public.settings where id = 1;
+
+  if not v_enabled then
+    raise exception 'ordering_disabled';
+  end if;
 
   if p_table is null or p_table < 1 or p_table > v_tables then
     raise exception 'invalid_table';
@@ -232,6 +297,10 @@ begin
   v_name := left(btrim(coalesce(p_name, '')), 60);
   if char_length(v_name) < 2 then
     raise exception 'invalid_name';
+  end if;
+
+  if p_method is null or not (p_method = any (v_methods)) then
+    raise exception 'invalid_payment';
   end if;
 
   if p_items is null
@@ -248,8 +317,8 @@ begin
   end if;
 
   begin
-    insert into public.orders (table_number, customer_name, client_token)
-    values (p_table, v_name, p_token)
+    insert into public.orders (table_number, customer_name, client_token, payment_method)
+    values (p_table, v_name, p_token, p_method)
     returning id into v_order;
   exception when unique_violation then
     -- Dos envíos simultáneos con el mismo token: gana el primero.
@@ -307,6 +376,7 @@ as $$
     'id',           o.id,
     'table_number', o.table_number,
     'status',       o.status,
+    'payment_method', o.payment_method,
     'total',        o.total,
     'created_at',   o.created_at,
     'ahead', case
@@ -331,9 +401,43 @@ as $$
   where o.id = p_id;
 $$;
 
-revoke all on function public.create_order(int, jsonb, text, uuid) from public;
+-- ---------- Pedidos activos de una mesa ----------
+-- Para que quien se sienta en una mesa (o vuelve con otro celular) vea en qué
+-- está el pedido. NO incluye nombres ni notas; solo estado, productos y total.
+-- Solo pedidos activos de las últimas 12 horas.
+create or replace function public.table_orders(p_table int)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id',         o.id,
+        'status',     o.status,
+        'total',      o.total,
+        'created_at', o.created_at,
+        'items', coalesce(
+          (select jsonb_agg(jsonb_build_object('name', i.name, 'quantity', i.quantity) order by i.name)
+             from public.order_items i where i.order_id = o.id),
+          '[]'::jsonb)
+      )
+      order by o.created_at
+    ),
+    '[]'::jsonb)
+  from public.orders o
+  where o.table_number = p_table
+    and o.status in ('pending', 'preparing', 'ready')
+    and o.created_at > now() - interval '12 hours';
+$$;
+
+revoke all on function public.create_order(int, jsonb, text, uuid, text) from public;
+revoke all on function public.table_orders(int) from public;
 revoke all on function public.get_order(uuid) from public;
-grant execute on function public.create_order(int, jsonb, text, uuid) to anon, authenticated;
+grant execute on function public.create_order(int, jsonb, text, uuid, text) to anon, authenticated;
+grant execute on function public.table_orders(int) to anon, authenticated;
 grant execute on function public.get_order(uuid) to anon, authenticated;
 
 -- ---------- Tiempo real para el panel del personal ----------

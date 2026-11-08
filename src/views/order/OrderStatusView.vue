@@ -4,10 +4,18 @@ import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft } from '@lucide/vue'
 import ConfigMissing from '../../components/ui/ConfigMissing.vue'
 import PaymentInfo from '../../components/order/PaymentInfo.vue'
+import WhatsAppProof from '../../components/order/WhatsAppProof.vue'
 import { getOrder, loadSettings } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { STATUS_LABEL, type OrderStatus, type PublicOrder, type Settings } from '../../lib/types'
+import {
+  PAYMENT_HINT,
+  PAYMENT_LABEL,
+  STATUS_LABEL,
+  type OrderStatus,
+  type PublicOrder,
+  type Settings
+} from '../../lib/types'
 
 const route = useRoute()
 
@@ -216,8 +224,23 @@ onUnmounted(() => {
         </p>
       </section>
 
-      <div v-if="order.status !== 'cancelled'" class="pt-8">
-        <PaymentInfo :settings="settings" />
+      <div v-if="order.status !== 'cancelled' && order.payment_method" class="pt-8">
+        <template v-if="order.payment_method === 'transfer'">
+          <PaymentInfo :settings="settings" />
+          <WhatsAppProof
+            :number="settings?.whatsapp_number ?? ''"
+            :table="order.table_number"
+            :total="order.total"
+          />
+        </template>
+
+        <section v-else class="border border-ink p-4">
+          <h3 class="font-display text-xl font-semibold leading-none">Cómo pagar</h3>
+          <p class="mt-2 text-[15px]">
+            <strong class="font-semibold">{{ PAYMENT_LABEL[order.payment_method] }}.</strong>
+            {{ PAYMENT_HINT[order.payment_method] }}
+          </p>
+        </section>
       </div>
 
       <RouterLink
