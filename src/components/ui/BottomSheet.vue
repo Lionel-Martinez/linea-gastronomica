@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from 'vue'
+import { onUnmounted, ref, toRef, watch } from 'vue'
 import { X } from '@lucide/vue'
+import { useDialogFocus } from '../../composables/useDialogFocus'
 
 const props = defineProps<{
   open: boolean
@@ -8,6 +9,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ close: [] }>()
+
+const panel = ref<HTMLElement | null>(null)
+useDialogFocus(toRef(props, 'open'), panel)
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
@@ -39,6 +43,8 @@ onUnmounted(() => {
       @click.self="emit('close')"
     >
       <section
+        ref="panel"
+        tabindex="-1"
         class="sheet-panel max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[14px] bg-paper p-6 shadow-2xl sm:rounded-[6px]"
         role="dialog"
         aria-modal="true"

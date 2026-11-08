@@ -16,6 +16,7 @@ import {
   X
 } from '@lucide/vue'
 import menuData from '../../data/menu.json'
+import { useDialogFocus } from '../../composables/useDialogFocus'
 import { loadMenu } from '../../lib/api'
 import { formatPrice } from '../../lib/format'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -83,6 +84,24 @@ const allCategories = ref<MenuCategory[]>(menuData.categories)
 const products = ref<MenuProduct[]>(menuData.products)
 const categories = computed(() => allCategories.value.filter((category) => category.id !== 'all'))
 
+// En la botonera solo van las categorías que tienen productos (una vacía dejaría la pantalla en blanco).
+const navCategories = computed(() =>
+  allCategories.value.filter(
+    (category) =>
+      category.id === 'all' || products.value.some((product) => product.category === category.id)
+  )
+)
+
+// Fotos que no cargaron (mala conexión o enlace caído): se muestra el recuadro neutro en su lugar.
+const failedImages = ref(new Set<string | number>())
+const imageOk = (product: MenuProduct) => Boolean(product.image) && !failedImages.value.has(product.id)
+
+const categoryName = (id: string) => allCategories.value.find((category) => category.id === id)?.name ?? ''
+
+watch(navCategories, (list) => {
+  if (!list.some((category) => category.id === selectedCategory.value)) selectedCategory.value = 'all'
+})
+
 async function loadLiveMenu() {
   if (!isSupabaseConfigured) return
 
@@ -112,6 +131,11 @@ async function loadLiveMenu() {
 const selectedCategory = ref('all')
 const search = ref('')
 const activeModal = ref<Modal>(null)
+const dialogEl = ref<HTMLElement | null>(null)
+useDialogFocus(
+  computed(() => activeModal.value !== null),
+  dialogEl
+)
 const copied = ref(false)
 const selectedRating = ref(0)
 const opinionName = ref('')
@@ -193,7 +217,8 @@ const visibleProducts = computed(() => {
 
     return (
       normalize(product.name).includes(term) ||
-      normalize(product.description).includes(term)
+      normalize(product.description).includes(term) ||
+      normalize(categoryName(product.category)).includes(term)
     )
   })
 })
@@ -379,6 +404,12 @@ watch(activeModal, (value) => {
 })
 
 onMounted(() => {
+  document
+    .querySelector('meta[name="description"]')
+    ?.setAttribute(
+      'content',
+      `Carta digital de ${business.name}: productos y precios, horarios, Wi-Fi y contacto.`
+    )
   void loadLiveMenu()
   document.title = `${business.name} · Menú`
   clock = window.setInterval(() => {
@@ -421,7 +452,7 @@ onUnmounted(() => {
         :href="mapsUrl"
         target="_blank"
         rel="noopener noreferrer"
-        class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+        class="-ml-1 mt-3 inline-flex min-h-11 items-center gap-1.5 px-1 text-sm font-medium underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
       >
         <MapPin class="size-4 shrink-0" aria-hidden="true" />
         {{ business.address }}
@@ -447,7 +478,7 @@ onUnmounted(() => {
       <div class="h-[3px] bg-ink"></div>
       <div class="mt-[3px] h-px bg-ink"></div>
 
-      <div class="flex divide-x divide-rule">
+      <nav class="flex divide-x divide-rule" aria-label="Accesos rápidos">
         <a
           v-if="whatsappUrl"
           :href="whatsappUrl"
@@ -473,21 +504,21 @@ onUnmounted(() => {
           <Star class="size-5" aria-hidden="true" />
           Opinión
         </button>
-      </div>
+      </nav>
 
       <div class="h-px bg-rule"></div>
     </div>
 
     <!-- Buscador -->
-    <div class="wrap pt-6">
-      <label class="flex items-center gap-3 border-b border-ink pb-2.5">
+    <div class="wrap pt-6" role="search">
+      <label class="flex min-h-11 items-center gap-3 border-b border-ink pb-1">
         <Search class="size-[18px] shrink-0 text-ink-soft" aria-hidden="true" />
         <span class="sr-only">Buscar en la carta</span>
         <input
           v-model="search"
           type="search"
           placeholder="Buscar en la carta"
-          class="w-full bg-transparent text-base outline-none placeholder:text-ink-soft/80"
+          class="min-h-11 w-full bg-transparent py-2 text-base outline-none placeholder:text-ink-soft/80"
         />
       </label>
     </div>
@@ -500,10 +531,10 @@ onUnmounted(() => {
       <div class="wrap">
         <div class="no-scrollbar -mx-1 flex gap-6 overflow-x-auto px-1">
           <button
-            v-for="category in allCategories"
+            v-for="category in navCategories"
             :key="category.id"
             type="button"
-            class="relative shrink-0 py-3.5 text-sm font-medium transition-colors"
+            class="relative min-w-11 shrink-0 py-3.5 text-sm font-medium transition-colors"
             :class="selectedCategory === category.id ? 'text-ink' : 'text-ink-soft hover:text-ink'"
             :aria-pressed="selectedCategory === category.id"
             @click="selectCategory(category.id, $event)"
@@ -526,6 +557,9 @@ onUnmounted(() => {
         </h2>
 
         <div
+          tabindex="0"
+          role="region"
+          aria-label="Favoritos de la casa"
           class="no-scrollbar -mx-5 mt-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-1 sm:-mx-8 sm:scroll-px-8 sm:px-8"
         >
           <article
@@ -534,10 +568,11 @@ onUnmounted(() => {
             class="w-[46%] shrink-0 snap-start sm:w-52"
           >
             <img
-              v-if="product.image"
+              v-if="imageOk(product)"
               :src="product.image"
               alt=""
               loading="lazy"
+              @error="failedImages.add(product.id)"
               class="aspect-[4/5] w-full rounded-[3px] bg-paper-deep object-cover"
             />
             <div v-else class="aspect-[4/5] w-full rounded-[3px] bg-paper-deep" aria-hidden="true"></div>
@@ -572,10 +607,11 @@ onUnmounted(() => {
             class="flex gap-4 py-4"
           >
             <img
-              v-if="product.image"
+              v-if="imageOk(product)"
               :src="product.image"
               alt=""
               loading="lazy"
+              @error="failedImages.add(product.id)"
               class="size-[72px] shrink-0 rounded-[3px] bg-paper-deep object-cover"
               :class="product.available ? '' : 'opacity-45 grayscale'"
             />
@@ -645,7 +681,7 @@ onUnmounted(() => {
               :href="mapsUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="mt-3 inline-flex items-start gap-1.5 text-[15px] underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+              class="mt-1 inline-flex min-h-11 items-start gap-1.5 py-2.5 text-[15px] underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
             >
               <MapPin class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               {{ business.address }}
@@ -673,7 +709,7 @@ onUnmounted(() => {
                   :href="whatsappUrl"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+                  class="inline-flex min-h-11 items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
                 >
                   <MessageCircle class="size-4" aria-hidden="true" />
                   Escribinos por WhatsApp
@@ -683,7 +719,7 @@ onUnmounted(() => {
               <li v-if="contact.phone">
                 <a
                   :href="`tel:${contact.phone}`"
-                  class="inline-flex items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+                  class="inline-flex min-h-11 items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
                 >
                   <Phone class="size-4" aria-hidden="true" />
                   {{ contact.phone }}
@@ -693,7 +729,7 @@ onUnmounted(() => {
               <li v-if="contact.email">
                 <a
                   :href="`mailto:${contact.email}`"
-                  class="inline-flex items-center gap-2 break-all underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+                  class="inline-flex min-h-11 items-center gap-2 break-all underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
                 >
                   <Mail class="size-4 shrink-0" aria-hidden="true" />
                   {{ contact.email }}
@@ -705,7 +741,7 @@ onUnmounted(() => {
                   :href="links.googleReviews"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
+                  class="inline-flex min-h-11 items-center gap-2 underline decoration-rule underline-offset-4 transition-colors hover:decoration-ink"
                 >
                   <Star class="size-4" aria-hidden="true" />
                   Opiniones en Google
@@ -720,7 +756,7 @@ onUnmounted(() => {
                 :href="item.url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-1 font-medium text-accent underline-offset-4 hover:underline"
+                class="inline-flex min-h-11 items-center gap-1 font-medium text-accent underline-offset-4 hover:underline"
               >
                 {{ item.name }}
                 <ArrowUpRight class="size-4" aria-hidden="true" />
@@ -749,7 +785,7 @@ onUnmounted(() => {
 
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 text-sm font-medium text-ink transition-colors hover:text-accent"
+            class="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink transition-colors hover:text-accent"
             @click="scrollToTop"
           >
             <ArrowUp class="size-4" aria-hidden="true" />
@@ -767,6 +803,8 @@ onUnmounted(() => {
         @click.self="closeModal"
       >
         <section
+          ref="dialogEl"
+          tabindex="-1"
           class="sheet-panel max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[14px] bg-paper p-6 shadow-2xl sm:rounded-[6px]"
           role="dialog"
           aria-modal="true"
