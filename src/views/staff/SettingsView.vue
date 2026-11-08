@@ -59,14 +59,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="wrap max-w-xl pb-16 pt-8">
+  <main class="wrap max-w-6xl pb-16 pt-8">
     <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Ajustes</h1>
 
     <p v-if="loading" class="py-16 text-center font-display text-xl italic text-ink-soft" aria-busy="true">
       Cargando…
     </p>
 
-    <form v-else class="mt-8 space-y-6" @submit.prevent="submit">
+    <form v-else class="mt-8 max-w-xl space-y-6" @submit.prevent="submit">
       <div>
         <label for="s-tables" class="mb-1.5 block text-sm font-medium">Cantidad de mesas</label>
         <input id="s-tables" v-model.number="form.table_count" type="number" min="1" max="200" class="field" />

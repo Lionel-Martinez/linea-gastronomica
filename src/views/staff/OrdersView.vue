@@ -199,7 +199,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="wrap pb-16 pt-8">
+  <main class="wrap max-w-6xl pb-16 pt-8">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Pedidos</h1>
 
@@ -260,7 +260,7 @@ onUnmounted(() => {
             <span class="ml-1 text-ink-soft">({{ section.orders.length }})</span>
           </h2>
 
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <article
               v-for="order in section.orders"
               :key="order.id"

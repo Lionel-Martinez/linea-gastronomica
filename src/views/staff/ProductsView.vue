@@ -168,7 +168,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="wrap pb-16 pt-8">
+  <main class="wrap max-w-6xl pb-16 pt-8">
     <div class="flex items-center justify-between gap-3">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Productos</h1>
       <button type="button" class="btn-solid btn-small" :disabled="!categories.length" @click="openNew">

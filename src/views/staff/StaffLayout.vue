@@ -37,7 +37,7 @@ onUnmounted(() => stopListening?.())
 <template>
   <div class="min-h-dvh bg-paper text-ink">
     <header class="border-b-[3px] border-ink print:hidden">
-      <div class="wrap flex items-center justify-between gap-4 py-4">
+      <div class="wrap max-w-6xl flex items-center justify-between gap-4 py-4">
         <div class="min-w-0">
           <p class="truncate text-[13px] font-medium text-ink-soft">{{ businessName }}</p>
           <p class="font-display text-2xl font-semibold leading-none">Personal</p>
@@ -52,7 +52,7 @@ onUnmounted(() => stopListening?.())
         </div>
       </div>
 
-      <nav class="wrap" aria-label="Secciones del panel">
+      <nav class="wrap max-w-6xl" aria-label="Secciones del panel">
         <div class="no-scrollbar -mx-1 flex gap-6 overflow-x-auto px-1">
           <RouterLink
             v-for="link in links"

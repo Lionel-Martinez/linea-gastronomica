@@ -56,7 +56,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="wrap pb-16 pt-8 print:max-w-none print:pt-0">
+  <main class="wrap max-w-6xl pb-16 pt-8 print:max-w-none print:pt-0">
     <div class="flex flex-wrap items-center justify-between gap-3 print:hidden">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Códigos QR</h1>
       <button type="button" class="btn-line btn-small" :disabled="!codes.length" @click="print">
@@ -75,7 +75,7 @@ onMounted(async () => {
 
     <p v-if="error" class="mt-5 text-sm text-accent-deep" role="alert">{{ error }}</p>
 
-    <ul class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 print:mt-0 print:grid-cols-3">
+    <ul class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:mt-0 print:grid-cols-3">
       <li
         v-for="code in codes"
         :key="code.key"
