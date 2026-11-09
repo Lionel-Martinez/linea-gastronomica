@@ -22,6 +22,16 @@ const router = createRouter({
       component: () => import('../views/order/OrderMenuView.vue')
     },
     {
+      path: '/pedir',
+      name: 'remote-order',
+      component: () => import('../views/order/OrderMenuView.vue')
+    },
+    {
+      path: '/seguimiento/:code?',
+      name: 'track',
+      component: () => import('../views/order/TrackView.vue')
+    },
+    {
       path: '/pedido/:id',
       name: 'order-status',
       component: () => import('../views/order/OrderStatusView.vue')
@@ -45,6 +55,11 @@ const router = createRouter({
           path: 'productos',
           name: 'staff-products',
           component: () => import('../views/staff/ProductsView.vue')
+        },
+        {
+          path: 'reparto',
+          name: 'staff-run',
+          component: () => import('../views/staff/RunView.vue')
         },
         {
           path: 'ajustes',

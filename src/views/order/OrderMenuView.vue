@@ -9,20 +9,33 @@ import PaymentInfo from '../../components/order/PaymentInfo.vue'
 import { useCart } from '../../composables/useCart'
 import {
   createOrder,
+  createRemoteOrder,
   friendlyError,
   getTableOrders,
   isProductUnavailable,
-  loadMenu
+  loadMenu,
+  loadZones
 } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
-import { clearSubmitToken, getName, setName, submitToken } from '../../lib/lastOrder'
+import {
+  clearSubmitToken,
+  getContact,
+  getName,
+  setContact,
+  setLastCode,
+  setName,
+  submitToken
+} from '../../lib/lastOrder'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
+  MODALITY_LABEL,
   PAYMENT_HINT,
+  PAYMENT_HINT_REMOTE,
   PAYMENT_LABEL,
   PAYMENT_METHODS,
   STATUS_LABEL,
   type Category,
+  type DeliveryZone,
   type PaymentMethod,
   type Product,
   type Settings,
@@ -31,6 +44,9 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+
+// /pedir = pedido a distancia (retiro o delivery); /mesa/N = pedido desde la mesa.
+const remote = computed(() => route.name === 'remote-order')
 
 // Número de mesa tomado de la URL (/mesa/5). 0 = inválido.
 const tableNumber = computed(() => {
@@ -45,14 +61,17 @@ const loading = ref(isSupabaseConfigured)
 const loadError = ref('')
 const notice = ref('')
 
-const { lines, count, total, qtyOf, add, inc, dec, clear, reconcile, payload } =
-  useCart(tableNumber)
+const cartKey = computed<number | string>(() => (remote.value ? 'remote' : tableNumber.value))
+
+const { lines, count, total, qtyOf, add, inc, dec, clear, reconcile, payload } = useCart(cartKey)
 
 const tableValid = computed(
   () =>
-    tableNumber.value >= 1 &&
-    tableNumber.value <= (settings.value?.table_count ?? 0)
+    remote.value ||
+    (tableNumber.value >= 1 && tableNumber.value <= (settings.value?.table_count ?? 0))
 )
+
+const zones = ref<DeliveryZone[]>([])
 
 /* ---------- Carga de la carta ---------- */
 
@@ -68,9 +87,17 @@ async function load() {
     loadError.value = ''
 
     // Local sin pedidos activados (plan solo-carta): se muestra la carta normal.
-    if (!data.settings.ordering_enabled) {
+    const canOrder = remote.value
+      ? data.settings.pickup_enabled || data.settings.delivery_enabled
+      : data.settings.ordering_enabled
+
+    if (!canOrder) {
       await router.replace({ name: 'menu' })
       return
+    }
+
+    if (remote.value && data.settings.delivery_enabled) {
+      zones.value = (await loadZones()).filter((zone) => zone.active)
     }
 
     const removed = reconcile(data.products)
@@ -94,7 +121,7 @@ function retry() {
 const tableOrders = ref<TableOrder[]>([])
 
 async function checkTableOrders() {
-  if (!tableNumber.value || !isSupabaseConfigured) {
+  if (remote.value || !tableNumber.value || !isSupabaseConfigured) {
     tableOrders.value = []
     return
   }
@@ -148,10 +175,53 @@ const sending = ref(false)
 const customerName = ref(getName())
 const method = ref<PaymentMethod | ''>('')
 
-// Formas de pago que el local aceptó en Ajustes, en orden fijo.
-const enabledMethods = computed(() =>
-  PAYMENT_METHODS.filter((m) => settings.value?.payment_methods.includes(m))
+// Pedido a distancia: cómo lo recibe y los datos de contacto y entrega.
+const saved = getContact()
+const modality = ref<'pickup' | 'delivery' | ''>('')
+const phone = ref(saved.phone)
+const zoneId = ref(saved.zone)
+const street = ref(saved.street)
+const streetNumber = ref(saved.number)
+const reference = ref(saved.reference)
+const cashFrom = ref('')
+
+const enabledModalities = computed(() =>
+  (['pickup', 'delivery'] as const).filter((m) =>
+    m === 'pickup' ? settings.value?.pickup_enabled : settings.value?.delivery_enabled
+  )
 )
+
+watch(
+  enabledModalities,
+  (list) => {
+    if (!remote.value) return
+    if (modality.value && !list.includes(modality.value)) modality.value = ''
+    if (!modality.value && list.length === 1) modality.value = list[0]!
+  },
+  { immediate: true }
+)
+
+const selectedZone = computed(() => zones.value.find((zone) => zone.id === zoneId.value) ?? null)
+const fee = computed(() => (remote.value && modality.value === 'delivery' ? (selectedZone.value?.fee ?? 0) : 0))
+const grandTotal = computed(() => total.value + fee.value)
+
+// Formas de pago que el local aceptó en Ajustes, en orden fijo.
+// En delivery solo transferencia y efectivo (tarjeta y QR necesitarían posnet portátil).
+const enabledMethods = computed(() =>
+  PAYMENT_METHODS.filter(
+    (m) =>
+      settings.value?.payment_methods.includes(m) &&
+      !(remote.value && modality.value === 'delivery' && m !== 'transfer' && m !== 'cash')
+  )
+)
+
+const methodHint = computed(() => {
+  if (!method.value) return ''
+  if (!remote.value) return PAYMENT_HINT[method.value]
+  return (
+    PAYMENT_HINT_REMOTE[modality.value || 'pickup'][method.value] ?? PAYMENT_HINT[method.value]
+  )
+})
 
 // Con una sola opción se elige sola; si la elegida deja de estar disponible, se limpia.
 watch(
@@ -170,25 +240,89 @@ function openCart() {
   void load() // actualiza disponibilidad antes de confirmar
 }
 
+function fail(message: string, focusId?: string) {
+  sendError.value = message
+  if (focusId) document.getElementById(focusId)?.focus()
+}
+
 async function send() {
   if (!lines.value.length || sending.value) return
 
   const name = customerName.value.trim()
   if (name.length < 2) {
-    sendError.value = 'Escribí tu nombre (al menos 2 letras) para que el personal sepa de quién es el pedido.'
-    document.getElementById('customer-name')?.focus()
-    return
+    return fail(
+      remote.value
+        ? 'Escribí tu nombre (al menos 2 letras) para que el local sepa de quién es el pedido.'
+        : 'Escribí tu nombre (al menos 2 letras) para que el personal sepa de quién es el pedido.',
+      'customer-name'
+    )
   }
 
-  if (!method.value) {
-    sendError.value = 'Elegí cómo vas a pagar.'
-    return
+  const phoneDigits = phone.value.replace(/\D/g, '')
+  const street_ = street.value.trim()
+  const number_ = streetNumber.value.trim()
+  let cash: number | null = null
+
+  if (remote.value) {
+    if (!modality.value) return fail('Elegí cómo lo recibís: retirar o delivery.')
+
+    if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+      return fail('Escribí un teléfono válido, con código de área (entre 8 y 15 números).', 'customer-phone')
+    }
+
+    if (modality.value === 'delivery') {
+      if (!selectedZone.value) return fail('Elegí tu zona de entrega.', 'delivery-zone')
+      if (street_.length < 2) return fail('Escribí la calle de la entrega.', 'delivery-street')
+      if (!number_) return fail('Escribí el número (o «s/n»).', 'delivery-number')
+    }
+  }
+
+  if (!method.value) return fail('Elegí cómo vas a pagar.')
+
+  if (remote.value && modality.value === 'delivery' && method.value === 'cash' && cashFrom.value.trim()) {
+    cash = Number(cashFrom.value.replace(',', '.'))
+    if (!Number.isFinite(cash) || cash < grandTotal.value) {
+      return fail('El monto con el que pagás tiene que cubrir el total del pedido.', 'cash-from')
+    }
   }
 
   sending.value = true
   sendError.value = ''
 
   try {
+    if (remote.value) {
+      // El mismo token en cada reintento evita que un corte de conexión duplique el pedido.
+      const created = await createRemoteOrder({
+        modality: modality.value as 'pickup' | 'delivery',
+        items: payload(),
+        name,
+        phone: phoneDigits,
+        method: method.value,
+        token: submitToken('remote'),
+        zone: modality.value === 'delivery' ? zoneId.value : null,
+        street: street_,
+        number: number_,
+        reference: reference.value.trim(),
+        cashFrom: cash
+      })
+
+      setName(name)
+      setContact({
+        phone: phone.value.trim(),
+        zone: zoneId.value,
+        street: street_,
+        number: number_,
+        reference: reference.value.trim()
+      })
+      setLastCode(created.tracking_code)
+      clearSubmitToken('remote')
+      clear()
+      sheetOpen.value = false
+
+      await router.push({ name: 'track', params: { code: created.tracking_code }, query: { nuevo: '1' } })
+      return
+    }
+
     // El mismo token en cada reintento evita que un corte de conexión duplique el pedido.
     const id = await createOrder(tableNumber.value, payload(), name, submitToken(tableNumber.value), method.value)
 
@@ -225,7 +359,9 @@ function onVisible() {
 }
 
 onMounted(() => {
-  document.title = `Mesa ${tableNumber.value || ''} · ${businessName}`.replace('  ', ' ')
+  document.title = remote.value
+    ? `Pedí desde casa · ${businessName}`
+    : `Mesa ${tableNumber.value || ''} · ${businessName}`.replace('  ', ' ')
 
   void load()
   void checkTableOrders()
@@ -246,12 +382,17 @@ onUnmounted(() => {
       <h1
         class="font-display mt-2 text-[clamp(3rem,14vw,5.5rem)] font-semibold leading-[0.92] tracking-[-0.02em]"
       >
-        <template v-if="tableNumber">Mesa {{ tableNumber }}</template>
+        <template v-if="remote">Pedí desde casa</template>
+        <template v-else-if="tableNumber">Mesa {{ tableNumber }}</template>
         <template v-else>Pedido</template>
       </h1>
 
       <p class="font-display mt-4 max-w-md text-lg italic leading-snug text-ink-soft">
-        Elegí lo que quieras y enviá el pedido desde acá.
+        {{
+          remote
+            ? 'Elegí lo que quieras, retiralo o pedí delivery, y seguí tu pedido con un código.'
+            : 'Elegí lo que quieras y enviá el pedido desde acá.'
+        }}
       </p>
     </header>
 
@@ -484,10 +625,99 @@ onUnmounted(() => {
         </li>
       </ul>
 
+      <dl v-if="fee > 0 || (remote && modality === 'delivery' && selectedZone)" class="space-y-1 pt-4 text-[15px]">
+        <div class="flex items-baseline justify-between">
+          <dt class="text-ink-soft">Productos</dt>
+          <dd class="tabular-nums">{{ formatPrice(total) }}</dd>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <dt class="text-ink-soft">Envío ({{ selectedZone?.name }})</dt>
+          <dd class="tabular-nums">{{ formatPrice(fee) }}</dd>
+        </div>
+      </dl>
+
       <p class="flex items-baseline justify-between py-4">
         <span class="font-display text-xl font-semibold">Total</span>
-        <span class="text-xl font-semibold tabular-nums">{{ formatPrice(total) }}</span>
+        <span class="text-xl font-semibold tabular-nums">{{ formatPrice(grandTotal) }}</span>
       </p>
+
+      <!-- Pedido a distancia: cómo lo recibe y datos de contacto -->
+      <template v-if="remote">
+        <div class="border-t border-rule pt-4" role="group" aria-labelledby="modality-label">
+          <p id="modality-label" class="mb-2 text-sm font-medium">¿Cómo lo recibís?</p>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label
+              v-for="option in enabledModalities"
+              :key="option"
+              class="flex cursor-pointer items-center justify-center border px-3 py-3 text-[15px] font-semibold transition-colors"
+              :class="modality === option ? 'border-ink bg-ink text-paper' : 'border-ink/40 hover:border-ink'"
+            >
+              <input v-model="modality" type="radio" name="modality" :value="option" class="sr-only" />
+              {{ MODALITY_LABEL[option] }}
+            </label>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label for="customer-phone" class="mb-1.5 block text-sm font-medium">Tu teléfono</label>
+          <input
+            id="customer-phone"
+            v-model="phone"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            maxlength="25"
+            placeholder="Con código de área, ej. 387 555 1234"
+            class="field"
+          />
+        </div>
+
+        <template v-if="modality === 'delivery'">
+          <div class="mt-4">
+            <label for="delivery-zone" class="mb-1.5 block text-sm font-medium">Zona de entrega</label>
+            <select id="delivery-zone" v-model="zoneId" class="field">
+              <option value="" disabled>Elegí tu zona</option>
+              <option v-for="zone in zones" :key="zone.id" :value="zone.id">
+                {{ zone.name }} · envío {{ formatPrice(zone.fee) }}
+              </option>
+            </select>
+            <p v-if="!zones.length" class="mt-1.5 text-sm text-accent-deep">
+              El local todavía no cargó zonas de entrega. Consultá con el local.
+            </p>
+          </div>
+
+          <div class="mt-4 grid grid-cols-[1fr_7rem] gap-3">
+            <div>
+              <label for="delivery-street" class="mb-1.5 block text-sm font-medium">Calle</label>
+              <input
+                id="delivery-street"
+                v-model="street"
+                type="text"
+                maxlength="80"
+                autocomplete="address-line1"
+                class="field"
+              />
+            </div>
+            <div>
+              <label for="delivery-number" class="mb-1.5 block text-sm font-medium">Número</label>
+              <input id="delivery-number" v-model="streetNumber" type="text" maxlength="10" class="field" />
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <label for="delivery-ref" class="mb-1.5 block text-sm font-medium">Referencia (opcional)</label>
+            <input
+              id="delivery-ref"
+              v-model="reference"
+              type="text"
+              maxlength="120"
+              placeholder="Portón negro, esquina con…, timbre"
+              class="field"
+            />
+          </div>
+        </template>
+      </template>
 
       <div class="border-t border-rule pt-4">
         <label for="customer-name" class="mb-1.5 block text-sm font-medium">Tu nombre</label>
@@ -525,7 +755,19 @@ onUnmounted(() => {
           </label>
         </div>
 
-        <p v-if="method" class="mt-2 text-sm text-ink-soft">{{ PAYMENT_HINT[method] }}</p>
+        <p v-if="method" class="mt-2 text-sm text-ink-soft">{{ methodHint }}</p>
+      </div>
+
+      <div v-if="remote && modality === 'delivery' && method === 'cash'" class="mt-4">
+        <label for="cash-from" class="mb-1.5 block text-sm font-medium">¿Con cuánto pagás? (opcional)</label>
+        <input
+          id="cash-from"
+          v-model="cashFrom"
+          type="text"
+          inputmode="numeric"
+          placeholder="Para que lleven el vuelto"
+          class="field"
+        />
       </div>
 
       <div v-if="method === 'transfer'" class="mt-4">
@@ -537,11 +779,22 @@ onUnmounted(() => {
       </p>
 
       <button type="button" class="btn-solid mt-5 w-full" :disabled="sending" @click="send">
-        {{ sending ? 'Enviando…' : `Enviar pedido · ${formatPrice(total)}` }}
+        {{ sending ? 'Enviando…' : `Enviar pedido · ${formatPrice(grandTotal)}` }}
       </button>
 
       <p class="mt-3 text-center text-xs text-ink-soft">
-        El personal va a confirmar tu pedido en un momento.
+        {{
+          remote
+            ? 'El local va a confirmar tu pedido. Después podés seguirlo con el código que te damos.'
+            : 'El personal va a confirmar tu pedido en un momento.'
+        }}
+      </p>
+
+      <p v-if="remote" class="mt-3 text-xs leading-relaxed text-ink-soft">
+        Privacidad: usamos tu teléfono y tu dirección solo para este pedido y se borran
+        {{ settings?.retention_days ?? 15 }} días después de terminado. Quien tenga tu código ve el
+        estado del pedido, pero no tus datos. Si va en delivery, los demás clientes de la misma salida
+        ven {{ settings?.stops_visibility === 'zone' ? 'tu zona' : 'la calle de tu entrega (sin número)' }}.
       </p>
     </BottomSheet>
   </div>

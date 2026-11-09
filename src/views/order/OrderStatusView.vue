@@ -42,6 +42,7 @@ const MESSAGES: Record<OrderStatus, string> = {
   pending: 'Recibimos tu pedido. El personal lo va a confirmar en un momento.',
   preparing: 'Tu pedido se está preparando.',
   ready: '¡Tu pedido está listo! Ya te lo llevan a la mesa.',
+  on_the_way: 'Tu pedido está en camino.',
   delivered: 'Entregado. ¡Buen provecho!',
   cancelled: 'Este pedido fue cancelado. Consultá con el personal.'
 }

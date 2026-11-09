@@ -17,9 +17,12 @@ import {
 } from '@lucide/vue'
 import menuData from '../../data/menu.json'
 import { useDialogFocus } from '../../composables/useDialogFocus'
+import { RouterLink } from 'vue-router'
+import TrackCodeForm from '../../components/order/TrackCodeForm.vue'
 import { loadMenu } from '../../lib/api'
 import { formatPrice } from '../../lib/format'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import type { Settings } from '../../lib/types'
 
 interface MenuCategory {
   id: string
@@ -72,11 +75,26 @@ const contact = business.contact
 const social = business.social
 const links = business.links
 
+// Ajustes reales del local (si hay Supabase): mandan sobre los datos de ejemplo.
+const liveSettings = ref<Settings | null>(null)
+
 // Modalidades de atención: solo se muestran las habilitadas (con todas apagadas no se muestra nada).
+// Retirar y delivery se encienden en Ajustes; "comer en el local" sale de los datos de la carta.
 const modalities = computed(() =>
-  (business.modalities as { id: string; label: string; enabled: boolean }[]).filter(
-    (modality) => modality.enabled
-  )
+  (business.modalities as { id: string; label: string; enabled: boolean }[])
+    .map((modality) => {
+      const live = liveSettings.value
+      if (!live) return modality
+      if (modality.id === 'pickup') return { ...modality, enabled: live.pickup_enabled }
+      if (modality.id === 'delivery') return { ...modality, enabled: live.delivery_enabled }
+      return modality
+    })
+    .filter((modality) => modality.enabled)
+)
+
+// Pedidos desde casa (retiro o delivery) activados por el local.
+const remoteOrdering = computed(
+  () => Boolean(liveSettings.value?.pickup_enabled || liveSettings.value?.delivery_enabled)
 )
 // Datos de ejemplo (menu.json). Si hay Supabase configurado se reemplazan por los reales,
 // así lo que el personal edita (precios, "Agotado") se ve también en la carta.
@@ -107,6 +125,7 @@ async function loadLiveMenu() {
 
   try {
     const live = await loadMenu()
+    liveSettings.value = live.settings
     if (!live.products.length) return
 
     allCategories.value = [
@@ -471,6 +490,10 @@ onUnmounted(() => {
           {{ modality.label }}
         </li>
       </ul>
+
+      <RouterLink v-if="remoteOrdering" :to="{ name: 'remote-order' }" class="btn-solid mt-5">
+        Pedir desde casa
+      </RouterLink>
     </header>
 
     <!-- Accesos rápidos -->
@@ -508,6 +531,17 @@ onUnmounted(() => {
 
       <div class="h-px bg-rule"></div>
     </div>
+
+    <!-- Seguimiento de pedidos a distancia -->
+    <section v-if="remoteOrdering" class="wrap pt-6" aria-labelledby="track-title">
+      <h2 id="track-title" class="font-display text-xl font-semibold leading-none">Seguí tu pedido</h2>
+      <p class="mb-3 mt-1.5 text-sm text-ink-soft">
+        Escribí el código que recibiste al pedir y mirá en qué está.
+      </p>
+      <div class="max-w-md">
+        <TrackCodeForm id="menu-track-code" />
+      </div>
+    </section>
 
     <!-- Buscador -->
     <div class="wrap pt-6" role="search">

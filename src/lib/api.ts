@@ -1,13 +1,17 @@
 import { db } from './supabase'
 import type {
+  BlockedPhone,
   Category,
+  DeliveryZone,
+  Modality,
   Order,
   OrderStatus,
   Product,
   PaymentMethod,
   PublicOrder,
   Settings,
-  TableOrder
+  TableOrder,
+  TrackedOrder
 } from './types'
 
 /* ---------- Errores ---------- */
@@ -19,7 +23,27 @@ export function friendlyError(error: unknown): string {
   if (message.includes('invalid_table'))
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
-    return 'Esta mesa ya tiene varios pedidos esperando confirmación. Avisale al personal.'
+    return 'Ya hay varios pedidos esperando confirmación. Esperá a que el local los confirme o avisale al personal.'
+  if (message.includes('modality_disabled') || message.includes('invalid_modality'))
+    return 'Por ahora el local no recibe pedidos de esta forma. Elegí otra o consultá con el local.'
+  if (message.includes('invalid_phone'))
+    return 'Escribí un teléfono válido, con código de área (entre 8 y 15 números).'
+  if (message.includes('phone_blocked'))
+    return 'No pudimos recibir tu pedido. Comunicate con el local.'
+  if (message.includes('invalid_zone'))
+    return 'Elegí una zona de entrega de la lista.'
+  if (message.includes('invalid_address'))
+    return 'Completá la calle y el número de la entrega.'
+  if (message.includes('invalid_cash'))
+    return 'El monto con el que pagás tiene que cubrir el total del pedido.'
+  if (message.includes('invalid_run'))
+    return 'Los pedidos elegidos ya no están listos para salir. Actualizá y probá de nuevo.'
+  if (message.includes('invalid_status'))
+    return 'Ese pedido ya cambió de estado. Actualizá la pantalla.'
+  if (message.includes('zone_duplicate'))
+    return 'Ya hay una zona con ese nombre.'
+  if (message.includes('invalid_eta'))
+    return 'La hora estimada tiene que ser de las próximas horas.'
   if (message.includes('product_unavailable'))
     return 'Algún producto ya no está disponible. Actualizamos la carta, revisá tu pedido.'
   if (message.includes('ordering_disabled'))
@@ -84,6 +108,18 @@ export async function loadSettings(): Promise<Settings> {
   return data as Settings
 }
 
+/** Zonas de entrega con su precio de envío (las carga el encargado). */
+export async function loadZones(): Promise<DeliveryZone[]> {
+  const { data, error } = await db()
+    .from('delivery_zones')
+    .select('*')
+    .order('sort_order')
+    .order('name')
+
+  if (error) throw error
+  return data as DeliveryZone[]
+}
+
 export interface OrderLinePayload {
   product_id: string
   quantity: number
@@ -113,6 +149,48 @@ export async function createOrder(
   return data as string
 }
 
+export interface RemoteOrderInput {
+  modality: Exclude<Modality, 'dine_in'>
+  items: OrderLinePayload[]
+  name: string
+  phone: string
+  method: PaymentMethod
+  token: string
+  zone?: string | null
+  street?: string
+  number?: string
+  reference?: string
+  cashFrom?: number | null
+}
+
+/** Pedido para retirar o delivery. Devuelve el id y el código de seguimiento. */
+export async function createRemoteOrder(input: RemoteOrderInput) {
+  const { data, error } = await db().rpc('create_remote_order', {
+    p_modality: input.modality,
+    p_items: input.items,
+    p_name: input.name,
+    p_phone: input.phone,
+    p_method: input.method,
+    p_token: input.token,
+    p_zone: input.zone ?? null,
+    p_street: input.street ?? null,
+    p_number: input.number ?? null,
+    p_reference: input.reference ?? null,
+    p_cash_from: input.cashFrom ?? null
+  })
+
+  if (error) throw error
+  return data as { id: string; tracking_code: string }
+}
+
+/** Seguimiento de un pedido a distancia con su código (null si no existe). */
+export async function getOrderByCode(code: string): Promise<TrackedOrder | null> {
+  const { data, error } = await db().rpc('get_order_by_code', { p_code: code })
+
+  if (error) throw error
+  return (data as TrackedOrder | null) ?? null
+}
+
 /** Pedidos activos de una mesa (sin nombres). Sirve para volver a ver el estado desde cualquier celular. */
 export async function getTableOrders(table: number): Promise<TableOrder[]> {
   const { data, error } = await db().rpc('table_orders', { p_table: table })
@@ -138,7 +216,7 @@ export async function listOrders(): Promise<Order[]> {
   const { data, error } = await db()
     .from('orders')
     .select('*, order_items(*)')
-    .or(`status.in.(pending,preparing,ready),created_at.gte.${startOfDay.toISOString()}`)
+    .or(`status.in.(pending,preparing,ready,on_the_way),created_at.gte.${startOfDay.toISOString()}`)
     .order('created_at', { ascending: true })
     .limit(300)
 
@@ -221,13 +299,95 @@ export async function saveSettings(settings: Settings) {
       payment_holder: settings.payment_holder,
       ordering_enabled: settings.ordering_enabled,
       payment_methods: settings.payment_methods,
-      whatsapp_number: settings.whatsapp_number
+      whatsapp_number: settings.whatsapp_number,
+      pickup_enabled: settings.pickup_enabled,
+      delivery_enabled: settings.delivery_enabled,
+      retention_days: settings.retention_days,
+      stops_visibility: settings.stops_visibility
     })
     .eq('id', 1)
     .select('id')
 
   if (error) throw error
   if (!data?.length) throw new Error('not_allowed')
+}
+
+/* ---------- Zonas, bloqueos y repartos (personal) ---------- */
+
+export interface ZoneInput {
+  id: string | null
+  name: string
+  fee: number
+  active: boolean
+  sort_order?: number
+}
+
+export async function saveZone(zone: ZoneInput) {
+  const row = { name: zone.name, fee: zone.fee, active: zone.active }
+
+  const query = zone.id
+    ? db().from('delivery_zones').update(row).eq('id', zone.id).select('id')
+    : db()
+        .from('delivery_zones')
+        .insert({ ...row, sort_order: zone.sort_order ?? 0 })
+        .select('id')
+
+  const { data, error } = await query
+
+  if (error) {
+    if (error.code === '23505') throw new Error('zone_duplicate')
+    throw error
+  }
+  if (!data?.length) throw new Error('not_allowed')
+}
+
+export async function deleteZone(id: string) {
+  const { data, error } = await db().from('delivery_zones').delete().eq('id', id).select('id')
+
+  if (error) throw error
+  if (!data?.length) throw new Error('not_allowed')
+}
+
+export async function listBlockedPhones(): Promise<BlockedPhone[]> {
+  const { data, error } = await db()
+    .from('blocked_phones')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as BlockedPhone[]
+}
+
+export async function blockPhone(phone: string, note: string) {
+  const { error } = await db().from('blocked_phones').insert({ phone, note })
+
+  // Ya estaba bloqueado: no es un error para quien lo hace.
+  if (error && error.code !== '23505') throw error
+}
+
+export async function unblockPhone(phone: string) {
+  const { error } = await db().from('blocked_phones').delete().eq('phone', phone)
+
+  if (error) throw error
+}
+
+/** El pedido sale a repartir: la lista da el orden de las paradas. */
+export async function startRun(orderIds: string[]) {
+  const { error } = await db().rpc('start_run', { p_order_ids: orderIds })
+
+  if (error) throw error
+}
+
+export async function markNear(id: string) {
+  const { error } = await db().rpc('mark_near', { p_id: id })
+
+  if (error) throw error
+}
+
+export async function setOrderEta(id: string, eta: Date | null) {
+  const { error } = await db().rpc('set_order_eta', { p_id: id, p_eta: eta ? eta.toISOString() : null })
+
+  if (error) throw error
 }
 
 /**

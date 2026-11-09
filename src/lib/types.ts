@@ -1,4 +1,13 @@
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled'
+export type OrderStatus =
+  | 'pending'
+  | 'preparing'
+  | 'ready'
+  | 'on_the_way'
+  | 'delivered'
+  | 'cancelled'
+
+/** Cómo recibe el pedido el cliente: en la mesa, retirando o delivery. */
+export type Modality = 'dine_in' | 'pickup' | 'delivery'
 
 export interface Category {
   id: string
@@ -36,6 +45,27 @@ export const PAYMENT_HINT: Record<PaymentMethod, string> = {
   cash: 'Pagás en efectivo en el local.'
 }
 
+/** Pistas de pago para pedidos a distancia (en delivery se paga al recibir). */
+export const PAYMENT_HINT_REMOTE: Record<Modality, Partial<Record<PaymentMethod, string>>> = {
+  dine_in: {},
+  pickup: {
+    transfer: 'Transferí y mandanos el comprobante por WhatsApp.',
+    card: 'Pagás con tarjeta cuando retirás.',
+    qr: 'Pagás con QR cuando retirás.',
+    cash: 'Pagás en efectivo cuando retirás.'
+  },
+  delivery: {
+    transfer: 'Transferí y mandanos el comprobante por WhatsApp.',
+    cash: 'Pagás en efectivo cuando te llega el pedido.'
+  }
+}
+
+export const MODALITY_LABEL: Record<Modality, string> = {
+  dine_in: 'En el local',
+  pickup: 'Retirar',
+  delivery: 'Delivery'
+}
+
 export interface Settings {
   table_count: number
   payment_alias: string
@@ -44,6 +74,24 @@ export interface Settings {
   ordering_enabled: boolean
   payment_methods: PaymentMethod[]
   whatsapp_number: string
+  pickup_enabled: boolean
+  delivery_enabled: boolean
+  retention_days: 7 | 15 | 30
+  stops_visibility: 'street' | 'zone'
+}
+
+export interface DeliveryZone {
+  id: string
+  name: string
+  fee: number
+  active: boolean
+  sort_order: number
+}
+
+export interface BlockedPhone {
+  phone: string
+  note: string
+  created_at: string
 }
 
 export interface OrderItem {
@@ -57,8 +105,21 @@ export interface OrderItem {
 /** Pedido tal como lo ve el personal (con sus líneas). */
 export interface Order {
   id: string
-  table_number: number
+  table_number: number | null
+  modality: Modality
   customer_name: string
+  customer_phone: string
+  delivery_street: string
+  delivery_number: string
+  delivery_reference: string
+  zone_name: string
+  delivery_fee: number
+  cash_change_from: number | null
+  eta_at: string | null
+  run_id: string | null
+  stop_position: number | null
+  near_at: string | null
+  tracking_code: string | null
   payment_method: PaymentMethod | ''
   status: OrderStatus
   total: number
@@ -78,6 +139,30 @@ export interface PublicOrder {
   items: OrderItem[]
 }
 
+export interface RunStop {
+  mine: boolean
+  done: boolean
+  place: string
+}
+
+/** Pedido a distancia visto con su código (respuesta de get_order_by_code). */
+export interface TrackedOrder {
+  id: string
+  tracking_code: string
+  modality: Modality
+  status: OrderStatus
+  payment_method: PaymentMethod | ''
+  total: number
+  delivery_fee: number
+  zone_name: string
+  created_at: string
+  eta_at: string | null
+  near: boolean
+  ahead: number
+  run: { position: number; total: number; before: number; stops: RunStop[] } | null
+  items: OrderItem[]
+}
+
 /** Pedido activo de una mesa, visible para quien está sentado ahí (sin nombres ni notas). */
 export interface TableOrder {
   id: string
@@ -91,8 +176,12 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: 'Por confirmar',
   preparing: 'En preparación',
   ready: 'Listo',
+  on_the_way: 'En camino',
   delivered: 'Entregado',
   cancelled: 'Cancelado'
 }
 
-export const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'preparing', 'ready']
+export const ACTIVE_STATUSES: OrderStatus[] = ['pending', 'preparing', 'ready', 'on_the_way']
+
+/** El código se muestra con un guion en el medio: K7M2-9QXA. */
+export const formatCode = (code: string) => `${code.slice(0, 4)}-${code.slice(4)}`

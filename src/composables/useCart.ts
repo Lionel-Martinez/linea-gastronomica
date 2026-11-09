@@ -41,8 +41,8 @@ function write(key: string, lines: CartLine[]) {
   }
 }
 
-/** Carrito de una mesa. Se guarda en el navegador para no perderse si se recarga. */
-export function useCart(table: Ref<number>) {
+/** Carrito de una mesa (o de pedidos a distancia). Se guarda en el navegador para no perderse si se recarga. */
+export function useCart(table: Ref<number | string>) {
   const key = computed(() => `lg:cart:${table.value}`)
   const lines = ref<CartLine[]>(read(key.value))
 

@@ -1,9 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Volume2, VolumeX } from '@lucide/vue'
-import { friendlyError, listOrders, setOrderStatus, subscribeOrders } from '../../lib/api'
-import { agoLabel, businessName, formatClock, formatPrice, minutesSince } from '../../lib/format'
+import { RouterLink } from 'vue-router'
+import { Ban, MessageCircle, Phone, Volume2, VolumeX } from '@lucide/vue'
 import {
+  blockPhone,
+  friendlyError,
+  listOrders,
+  setOrderEta,
+  setOrderStatus,
+  subscribeOrders
+} from '../../lib/api'
+import {
+  agoLabel,
+  businessName,
+  formatClock,
+  formatPrice,
+  minutesSince,
+  whatsappNumber
+} from '../../lib/format'
+import {
+  formatCode,
+  MODALITY_LABEL,
   PAYMENT_LABEL,
   STATUS_LABEL,
   type Order,
@@ -31,9 +48,9 @@ let unsubscribe: (() => void) | undefined
 const seen = new Set<string>()
 let firstLoad = true
 
-const pending = computed(() => orders.value.filter((order) => order.status === 'pending'))
-const preparing = computed(() => orders.value.filter((order) => order.status === 'preparing'))
-const ready = computed(() => orders.value.filter((order) => order.status === 'ready'))
+const byStatus = (status: OrderStatus) => orders.value.filter((order) => order.status === status)
+
+const pending = computed(() => byStatus('pending'))
 const finished = computed(() =>
   orders.value
     .filter((order) => order.status === 'delivered' || order.status === 'cancelled')
@@ -41,18 +58,45 @@ const finished = computed(() =>
 )
 
 const sections = computed(() => [
-  { key: 'pending', title: 'Por confirmar', orders: pending.value },
-  { key: 'preparing', title: 'En preparación', orders: preparing.value },
-  { key: 'ready', title: 'Listos para entregar', orders: ready.value }
+  { key: 'pending', title: 'Por confirmar', orders: byStatus('pending') },
+  { key: 'preparing', title: 'En preparación', orders: byStatus('preparing') },
+  { key: 'ready', title: 'Listos para entregar', orders: byStatus('ready') },
+  { key: 'on_the_way', title: 'En camino', orders: byStatus('on_the_way') }
 ])
 
 const hasActive = computed(() => sections.value.some((section) => section.orders.length))
 
-const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
-  pending: { to: 'preparing', label: 'Confirmar' },
-  preparing: { to: 'ready', label: 'Marcar listo' },
-  ready: { to: 'delivered', label: 'Marcar entregado' }
+/** "Mesa 4", "Retiro" o "Delivery". */
+const titleOf = (order: Order) =>
+  order.modality === 'dine_in'
+    ? `Mesa ${order.table_number}`
+    : order.modality === 'pickup'
+      ? 'Retiro'
+      : MODALITY_LABEL.delivery
+
+const isRemote = (order: Order) => order.modality !== 'dine_in'
+
+// Qué botón principal corresponde: los delivery listos salen a repartir desde "Reparto".
+function nextAction(order: Order): { to: OrderStatus; label: string } | null {
+  switch (order.status) {
+    case 'pending':
+      return { to: 'preparing', label: 'Confirmar' }
+    case 'preparing':
+      return { to: 'ready', label: 'Marcar listo' }
+    case 'ready':
+      if (order.modality === 'delivery') return null
+      return { to: 'delivered', label: order.modality === 'pickup' ? 'Marcar retirado' : 'Marcar entregado' }
+    case 'on_the_way':
+      return { to: 'delivered', label: 'Marcar entregado' }
+    default:
+      return null
+  }
 }
+
+const canCancel = (order: Order) =>
+  order.status === 'pending' ||
+  order.status === 'preparing' ||
+  (isRemote(order) && (order.status === 'ready' || order.status === 'on_the_way'))
 
 const sortedItems = (order: Order): OrderItem[] =>
   [...order.order_items].sort((a, b) => a.name.localeCompare(b.name))
@@ -62,6 +106,19 @@ const waiting = (order: Order) => minutesSince(order.created_at, now.value)
 // Un pedido que espera hace 10 minutos o más se resalta.
 const isLate = (order: Order) =>
   (order.status === 'pending' || order.status === 'preparing') && waiting(order) >= 10
+
+const address = (order: Order) =>
+  [`${order.delivery_street} ${order.delivery_number}`.trim(), order.zone_name]
+    .filter(Boolean)
+    .join(' · ')
+
+const whatsappHref = (order: Order) => {
+  const text =
+    `Hola${order.customer_name ? ` ${order.customer_name}` : ''}, te escribimos de ${businessName} ` +
+    `por tu pedido${order.tracking_code ? ` ${formatCode(order.tracking_code)}` : ''}.`
+
+  return `https://wa.me/${whatsappNumber(order.customer_phone)}?text=${encodeURIComponent(text)}`
+}
 
 /* ---------- Carga y tiempo real ---------- */
 
@@ -115,7 +172,9 @@ function beep() {
 }
 
 function notify(fresh: Order[]) {
-  alertText.value = fresh.map((order) => `Mesa ${order.table_number}${order.customer_name ? ` (${order.customer_name})` : ''}`).join(', ')
+  alertText.value = fresh
+    .map((order) => `${titleOf(order)}${order.customer_name ? ` (${order.customer_name})` : ''}`)
+    .join(', ')
 
   window.clearTimeout(alertTimer)
   alertTimer = window.setTimeout(() => {
@@ -172,8 +231,48 @@ async function move(order: Order, status: OrderStatus) {
 }
 
 function cancel(order: Order) {
-  if (window.confirm(`¿Cancelar el pedido de la mesa ${order.table_number}?`)) {
+  if (window.confirm(`¿Cancelar el pedido (${titleOf(order)}${order.customer_name ? `, ${order.customer_name}` : ''})?`)) {
     void move(order, 'cancelled')
+  }
+}
+
+async function block(order: Order) {
+  if (!order.customer_phone) return
+
+  const label = order.customer_name ? `${order.customer_name} (${order.customer_phone})` : order.customer_phone
+  if (!window.confirm(`¿Bloquear el teléfono de ${label}? No va a poder hacer más pedidos desde casa.`)) return
+
+  try {
+    await blockPhone(order.customer_phone, order.customer_name.slice(0, 80))
+    error.value = ''
+  } catch (e) {
+    error.value = friendlyError(e)
+  }
+}
+
+const ETA_OPTIONS = [
+  { value: '', label: 'Elegir…' },
+  { value: 'clear', label: 'Quitar la hora' },
+  { value: '15', label: 'En 15 min' },
+  { value: '30', label: 'En 30 min' },
+  { value: '45', label: 'En 45 min' },
+  { value: '60', label: 'En 1 hora' },
+  { value: '90', label: 'En 1 h 30 min' }
+]
+
+async function changeEta(order: Order, event: Event) {
+  const select = event.target as HTMLSelectElement
+  const value = select.value
+  select.value = ''
+  if (!value) return
+
+  try {
+    await setOrderEta(order.id, value === 'clear' ? null : new Date(Date.now() + Number(value) * 60_000))
+    error.value = ''
+  } catch (e) {
+    error.value = friendlyError(e)
+  } finally {
+    void refresh()
   }
 }
 
@@ -272,17 +371,19 @@ onUnmounted(() => {
               :key="order.id"
               class="border bg-white/40 p-4"
               :class="isLate(order) ? 'border-accent' : 'border-ink'"
+              :data-modality="order.modality"
             >
               <header class="flex items-start justify-between gap-3">
-                <div>
+                <div class="min-w-0">
                   <p class="font-display text-3xl font-semibold leading-none">
-                    Mesa {{ order.table_number }}
+                    {{ titleOf(order) }}
                   </p>
                   <p v-if="order.customer_name" class="mt-1.5 text-[15px] font-semibold">
                     {{ order.customer_name }}
                   </p>
                   <p class="mt-1.5 text-[13px] tabular-nums text-ink-soft">
                     {{ formatClock(order.created_at) }} · {{ agoLabel(waiting(order)) }}
+                    <template v-if="order.tracking_code"> · {{ formatCode(order.tracking_code) }}</template>
                   </p>
                 </div>
 
@@ -298,6 +399,39 @@ onUnmounted(() => {
                 </span>
               </header>
 
+              <!-- Retiro y delivery: contacto y dirección -->
+              <div v-if="isRemote(order)" class="mt-3 space-y-1 border-t border-rule pt-3 text-[15px]">
+                <p v-if="order.customer_phone" class="flex items-center gap-2">
+                  <Phone class="size-4 shrink-0 text-ink-soft" aria-hidden="true" />
+                  <span class="tabular-nums">{{ order.customer_phone }}</span>
+                </p>
+                <p v-else class="text-sm text-ink-soft">Teléfono borrado por privacidad.</p>
+
+                <template v-if="order.modality === 'delivery'">
+                  <p v-if="address(order)" class="font-semibold">{{ address(order) }}</p>
+                  <p v-else class="text-sm text-ink-soft">Dirección borrada por privacidad.</p>
+                  <p v-if="order.delivery_reference" class="text-sm italic text-accent-deep">
+                    “{{ order.delivery_reference }}”
+                  </p>
+                </template>
+
+                <div v-if="order.customer_phone" class="flex flex-wrap gap-2 pt-1">
+                  <a
+                    :href="whatsappHref(order)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-line btn-small"
+                  >
+                    <MessageCircle class="size-4" aria-hidden="true" />
+                    WhatsApp
+                  </a>
+                  <button type="button" class="btn-line btn-small" @click="block(order)">
+                    <Ban class="size-4" aria-hidden="true" />
+                    Bloquear
+                  </button>
+                </div>
+              </div>
+
               <ul class="mt-3 divide-y divide-rule border-y border-rule">
                 <li v-for="(item, index) in sortedItems(order)" :key="index" class="py-2">
                   <p class="text-[15px]">
@@ -310,28 +444,64 @@ onUnmounted(() => {
                 </li>
               </ul>
 
-              <p class="mt-3 flex items-baseline justify-between text-sm">
+              <p v-if="order.delivery_fee > 0" class="mt-3 flex items-baseline justify-between text-sm">
+                <span class="text-ink-soft">Envío</span>
+                <span class="tabular-nums">{{ formatPrice(order.delivery_fee) }}</span>
+              </p>
+              <p class="mt-2 flex items-baseline justify-between text-sm">
                 <span class="text-ink-soft">Total</span>
                 <span class="font-semibold tabular-nums">{{ formatPrice(order.total) }}</span>
               </p>
               <p v-if="order.payment_method" class="mt-1 flex items-baseline justify-between text-sm">
                 <span class="text-ink-soft">Paga con</span>
-                <span class="font-semibold">{{ PAYMENT_LABEL[order.payment_method] }}</span>
+                <span class="font-semibold">
+                  {{ PAYMENT_LABEL[order.payment_method] }}
+                  <template v-if="order.cash_change_from">
+                    (con {{ formatPrice(order.cash_change_from) }})
+                  </template>
+                </span>
               </p>
 
-              <div class="mt-4 flex flex-wrap gap-2">
+              <div v-if="isRemote(order)" class="mt-3">
+                <label :for="`eta-${order.id}`" class="mb-1 block text-xs text-ink-soft">
+                  Hora estimada
+                  <span v-if="order.eta_at" class="font-semibold text-ink tabular-nums">
+                    · {{ formatClock(order.eta_at) }}
+                  </span>
+                </label>
+                <select
+                  :id="`eta-${order.id}`"
+                  class="field !py-2 text-sm"
+                  :value="''"
+                  @change="changeEta(order, $event)"
+                >
+                  <option v-for="option in ETA_OPTIONS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center gap-2">
                 <button
-                  v-if="NEXT[order.status]"
+                  v-if="nextAction(order)"
                   type="button"
                   class="btn-solid btn-small"
                   :disabled="busyIds.includes(order.id)"
-                  @click="move(order, NEXT[order.status]!.to)"
+                  @click="move(order, nextAction(order)!.to)"
                 >
-                  {{ NEXT[order.status]!.label }}
+                  {{ nextAction(order)!.label }}
                 </button>
 
+                <RouterLink
+                  v-else-if="order.status === 'ready' && order.modality === 'delivery'"
+                  :to="{ name: 'staff-run' }"
+                  class="btn-solid btn-small"
+                >
+                  Armar el reparto
+                </RouterLink>
+
                 <button
-                  v-if="order.status === 'pending' || order.status === 'preparing'"
+                  v-if="canCancel(order)"
                   type="button"
                   class="btn-line btn-small"
                   :disabled="busyIds.includes(order.id)"
@@ -357,7 +527,7 @@ onUnmounted(() => {
             class="flex items-baseline justify-between gap-3 py-2.5 text-[15px]"
           >
             <span>
-              <span class="font-semibold">Mesa {{ order.table_number }}</span>
+              <span class="font-semibold">{{ titleOf(order) }}</span>
               <span v-if="order.customer_name" class="ml-2">{{ order.customer_name }}</span>
               <span class="ml-2 tabular-nums text-ink-soft">{{ formatClock(order.created_at) }}</span>
             </span>

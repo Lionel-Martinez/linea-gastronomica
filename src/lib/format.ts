@@ -29,3 +29,15 @@ export function agoLabel(minutes: number) {
   if (minutes < 60) return `hace ${minutes} min`
   return `hace ${Math.floor(minutes / 60)} h ${minutes % 60} min`
 }
+
+/**
+ * Número listo para wa.me a partir de un teléfono argentino escrito de cualquier forma
+ * (con o sin 0, +54 o 9). Un número de 10 dígitos (área + línea) se completa con 549.
+ */
+export function whatsappNumber(phone: string) {
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = digits.slice(1)
+  if (digits.startsWith('54')) return digits
+  if (digits.length === 10) return `549${digits}`
+  return digits
+}

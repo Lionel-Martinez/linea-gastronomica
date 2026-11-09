@@ -13,9 +13,12 @@ const email = ref('')
 let stopListening: (() => void) | undefined
 
 // Sin pedidos activados (plan solo-carta) no hay pantalla de pedidos; los ajustes son solo de encargados.
+const takesOrders = computed(() => panel.ordering || panel.remote)
+
 const links = computed(() =>
   [
-    { name: 'staff-orders', label: 'Pedidos', show: panel.ordering },
+    { name: 'staff-orders', label: 'Pedidos', show: takesOrders.value },
+    { name: 'staff-run', label: 'Reparto', show: panel.delivery },
     { name: 'staff-products', label: 'Productos', show: true },
     { name: 'staff-settings', label: 'Ajustes', show: panel.manager },
     { name: 'staff-qr', label: 'Códigos QR', show: true }
@@ -23,10 +26,14 @@ const links = computed(() =>
 )
 
 watch(
-  () => [panel.ready, panel.ordering, route.name] as const,
-  ([ready, ordering, name]) => {
-    if (ready && !ordering && name === 'staff-orders') {
+  () => [panel.ready, takesOrders.value, panel.delivery, route.name] as const,
+  ([ready, orders, delivery, name]) => {
+    if (ready && !orders && name === 'staff-orders') {
       void router.replace({ name: 'staff-products' })
+    }
+
+    if (ready && !delivery && name === 'staff-run') {
+      void router.replace({ name: orders ? 'staff-orders' : 'staff-products' })
     }
   },
   { immediate: true }

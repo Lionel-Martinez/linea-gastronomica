@@ -35,7 +35,7 @@ function randomUuid(): string {
  * Devuelve el token del envío en curso de esta mesa (lo crea si no hay).
  * Se conserva hasta que el pedido se crea bien, así un reintento no duplica.
  */
-export function submitToken(table: number): string {
+export function submitToken(table: number | string): string {
   const key = `lg:token:${table}`
 
   try {
@@ -50,10 +50,64 @@ export function submitToken(table: number): string {
   }
 }
 
-export function clearSubmitToken(table: number) {
+export function clearSubmitToken(table: number | string) {
   try {
     localStorage.removeItem(`lg:token:${table}`)
   } catch {
     // nada que limpiar
+  }
+}
+
+/* ---------- Datos de contacto para pedidos a distancia ---------- */
+// Se guardan solo en este celular, para no escribirlos de nuevo en el próximo pedido.
+
+export interface Contact {
+  phone: string
+  zone: string
+  street: string
+  number: string
+  reference: string
+}
+
+const EMPTY_CONTACT: Contact = { phone: '', zone: '', street: '', number: '', reference: '' }
+
+export function getContact(): Contact {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('lg:contact') ?? '{}') as Partial<Contact>
+    return {
+      phone: typeof parsed.phone === 'string' ? parsed.phone : '',
+      zone: typeof parsed.zone === 'string' ? parsed.zone : '',
+      street: typeof parsed.street === 'string' ? parsed.street : '',
+      number: typeof parsed.number === 'string' ? parsed.number : '',
+      reference: typeof parsed.reference === 'string' ? parsed.reference : ''
+    }
+  } catch {
+    return { ...EMPTY_CONTACT }
+  }
+}
+
+export function setContact(contact: Contact) {
+  try {
+    localStorage.setItem('lg:contact', JSON.stringify(contact))
+  } catch {
+    // Sin almacenamiento: tendrá que escribirlos de nuevo.
+  }
+}
+
+/* ---------- Último código de seguimiento ---------- */
+
+export function getLastCode(): string {
+  try {
+    return localStorage.getItem('lg:last-code') ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function setLastCode(code: string) {
+  try {
+    localStorage.setItem('lg:last-code', code)
+  } catch {
+    // nada que hacer
   }
 }

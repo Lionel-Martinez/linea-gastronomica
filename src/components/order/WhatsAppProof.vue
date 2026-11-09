@@ -6,15 +6,19 @@ import { getName } from '../../lib/lastOrder'
 
 const props = defineProps<{
   number: string
-  table: number
   total: number
+  /** Pedido en mesa. */
+  table?: number
+  /** Pedido a distancia: se identifica con su código. */
+  code?: string
 }>()
 
 // Abre WhatsApp con el mensaje armado; el cliente adjunta la captura del comprobante.
 const href = computed(() => {
   const name = getName()
+  const which = props.code ? `mi pedido ${props.code}` : `mi pedido de la mesa ${props.table}`
   const text =
-    `Hola, te envío el comprobante de mi pedido de la mesa ${props.table}` +
+    `Hola, te envío el comprobante de ${which}` +
     `${name ? ` (${name})` : ''}. Total: ${formatPrice(props.total)}.`
 
   return `https://wa.me/${props.number}?text=${encodeURIComponent(text)}`
