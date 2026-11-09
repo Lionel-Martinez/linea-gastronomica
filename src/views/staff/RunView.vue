@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { BellRing, Check, MessageCircle } from '@lucide/vue'
+import { BellRing, Check, MapPin, MessageCircle, Navigation } from '@lucide/vue'
+import { useLocationSharing } from '../../composables/useLocationSharing'
+import { ageLabel } from '../../lib/geo'
 import {
   friendlyError,
   listOrders,
@@ -18,6 +20,9 @@ const error = ref('')
 const busy = ref(false)
 const selected = ref<string[]>([]) // el orden en que se tocan es el orden de las paradas
 
+const sharing = useLocationSharing()
+const clock = ref(Date.now())
+let clockTimer: number | undefined
 let pollTimer: number | undefined
 let debounceTimer: number | undefined
 let unsubscribe: (() => void) | undefined
@@ -40,6 +45,15 @@ const runs = computed(() => {
     stops: stops.sort((a, b) => (a.stop_position ?? 0) - (b.stop_position ?? 0))
   }))
 })
+
+const sharedAgo = computed(() =>
+  sharing.lastSentAt.value === null ? null : Math.max(0, Math.round((clock.value - sharing.lastSentAt.value) / 1000))
+)
+
+function toggleSharing(runId: string) {
+  if (sharing.sharingRun.value === runId) sharing.stop()
+  else sharing.start(runId)
+}
 
 const address = (order: Order) =>
   [`${order.delivery_street} ${order.delivery_number}`.trim(), order.zone_name]
@@ -65,6 +79,11 @@ const nearHref = (order: Order) => {
 async function refresh() {
   try {
     orders.value = await listOrders()
+
+    // Si el reparto que compartía ubicación terminó, se deja de compartir.
+    if (sharing.sharingRun.value && !runs.value.some((group) => group.id === sharing.sharingRun.value)) {
+      sharing.stop()
+    }
     // Se descartan los elegidos que ya no están listos (los tomó otra persona, por ejemplo).
     selected.value = selected.value.filter((id) => ready.value.some((order) => order.id === id))
     error.value = ''
@@ -110,11 +129,13 @@ onMounted(async () => {
 
   unsubscribe = subscribeOrders(scheduleRefresh, () => {})
   pollTimer = window.setInterval(refresh, 10_000)
+  clockTimer = window.setInterval(() => (clock.value = Date.now()), 5000)
 })
 
 onUnmounted(() => {
   unsubscribe?.()
   window.clearInterval(pollTimer)
+  window.clearInterval(clockTimer)
   window.clearTimeout(debounceTimer)
   document.title = businessName
 })
@@ -148,6 +169,38 @@ onUnmounted(() => {
           <span class="ml-1 text-ink-soft">({{ group.stops.length }})</span>
         </h2>
 
+        <!-- Compartir la ubicación de este celular con los clientes -->
+        <div class="mt-4 border border-ink/40 p-3" data-sharing>
+          <p class="text-sm text-ink-soft">
+            Compartí tu ubicación para que cada cliente vea al repartidor cuando es su turno y el
+            «Estoy cerca» se avise solo. Dejá esta pantalla abierta y encendida: si el celular se bloquea, se corta.
+          </p>
+
+          <button
+            type="button"
+            class="mt-3 w-full sm:w-auto"
+            :class="sharing.sharingRun.value === group.id ? 'btn-line' : 'btn-solid'"
+            :aria-pressed="sharing.sharingRun.value === group.id"
+            @click="toggleSharing(group.id)"
+          >
+            <Navigation class="size-4" aria-hidden="true" />
+            {{ sharing.sharingRun.value === group.id ? 'Dejar de compartir mi ubicación' : 'Compartir mi ubicación' }}
+          </button>
+
+          <p v-if="sharing.sharingRun.value === group.id" class="mt-2 text-sm font-medium" role="status">
+            Compartiendo
+            <template v-if="sharedAgo !== null"> · última vez {{ ageLabel(sharedAgo) }}</template>
+            <template v-else> · buscando tu ubicación…</template>
+            <template v-if="sharing.accuracy.value"> · precisión de unos {{ Math.round(sharing.accuracy.value) }} m</template>
+          </p>
+          <p v-if="sharing.error.value && sharing.sharingRun.value !== group.id" class="mt-2 text-sm text-accent-deep" role="alert">
+            {{ sharing.error.value }}
+          </p>
+          <p v-else-if="sharing.error.value" class="mt-2 text-sm text-accent-deep" role="alert">
+            {{ sharing.error.value }}
+          </p>
+        </div>
+
         <ol class="mt-4 space-y-4">
           <li
             v-for="(order, stopIndex) in group.stops"
@@ -169,6 +222,16 @@ onUnmounted(() => {
                 <p v-if="order.delivery_reference" class="text-sm italic text-accent-deep">
                   “{{ order.delivery_reference }}”
                 </p>
+                <a
+                  v-if="order.dest_lat !== null && order.dest_lng !== null"
+                  :href="`https://www.google.com/maps?q=${order.dest_lat},${order.dest_lng}`"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline underline-offset-4"
+                >
+                  <MapPin class="size-4" aria-hidden="true" />
+                  Ver ubicación del cliente
+                </a>
                 <p class="mt-2 text-sm text-ink-soft tabular-nums">
                   {{ order.customer_phone }}
                   <template v-if="order.eta_at"> · estimada {{ formatClock(order.eta_at) }}</template>

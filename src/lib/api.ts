@@ -40,6 +40,8 @@ export function friendlyError(error: unknown): string {
     return 'Los pedidos elegidos ya no están listos para salir. Actualizá y probá de nuevo.'
   if (message.includes('invalid_status'))
     return 'Ese pedido ya cambió de estado. Actualizá la pantalla.'
+  if (message.includes('invalid_position'))
+    return 'No pudimos leer la ubicación del celular. Revisá el permiso de ubicación.'
   if (message.includes('zone_duplicate'))
     return 'Ya hay una zona con ese nombre.'
   if (message.includes('invalid_eta'))
@@ -161,6 +163,9 @@ export interface RemoteOrderInput {
   number?: string
   reference?: string
   cashFrom?: number | null
+  /** Ubicación opcional del cliente (solo delivery). */
+  destLat?: number | null
+  destLng?: number | null
 }
 
 /** Pedido para retirar o delivery. Devuelve el id y el código de seguimiento. */
@@ -176,7 +181,9 @@ export async function createRemoteOrder(input: RemoteOrderInput) {
     p_street: input.street ?? null,
     p_number: input.number ?? null,
     p_reference: input.reference ?? null,
-    p_cash_from: input.cashFrom ?? null
+    p_cash_from: input.cashFrom ?? null,
+    p_dest_lat: input.destLat ?? null,
+    p_dest_lng: input.destLng ?? null
   })
 
   if (error) throw error
@@ -374,6 +381,18 @@ export async function unblockPhone(phone: string) {
 /** El pedido sale a repartir: la lista da el orden de las paradas. */
 export async function startRun(orderIds: string[]) {
   const { error } = await db().rpc('start_run', { p_order_ids: orderIds })
+
+  if (error) throw error
+}
+
+/** El celular del repartidor manda su posición (solo mientras comparte). */
+export async function updateRunPosition(run: string, lat: number, lng: number, accuracy: number | null) {
+  const { error } = await db().rpc('update_run_position', {
+    p_run: run,
+    p_lat: lat,
+    p_lng: lng,
+    p_accuracy: accuracy
+  })
 
   if (error) throw error
 }

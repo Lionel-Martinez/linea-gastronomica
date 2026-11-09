@@ -120,6 +120,8 @@ export interface Order {
   stop_position: number | null
   near_at: string | null
   tracking_code: string | null
+  dest_lat: number | null
+  dest_lng: number | null
   payment_method: PaymentMethod | ''
   status: OrderStatus
   total: number
@@ -160,7 +162,18 @@ export interface TrackedOrder {
   near: boolean
   ahead: number
   run: { position: number; total: number; before: number; stops: RunStop[] } | null
+  /** Posición del repartidor: solo cuando este pedido es la próxima parada. */
+  driver: DriverPosition | null
   items: OrderItem[]
+}
+
+export interface DriverPosition {
+  lat: number
+  lng: number
+  /** Segundos desde que el celular del repartidor mandó este punto. */
+  age_seconds: number
+  /** Distancia aproximada a la entrega (redondeada a 50 m); null si el cliente no guardó su ubicación. */
+  distance_m: number | null
 }
 
 /** Pedido activo de una mesa, visible para quien está sentado ahí (sin nombres ni notas). */

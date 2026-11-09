@@ -3,11 +3,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, Check, Copy, MapPin, MessageCircle } from '@lucide/vue'
 import ConfigMissing from '../../components/ui/ConfigMissing.vue'
+import DriverMap from '../../components/order/DriverMap.vue'
 import PaymentInfo from '../../components/order/PaymentInfo.vue'
 import TrackCodeForm from '../../components/order/TrackCodeForm.vue'
 import WhatsAppProof from '../../components/order/WhatsAppProof.vue'
 import { getOrderByCode, loadSettings } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
+import { ageLabel, distanceLabel, geoErrorMessage, getPosition, geolocationSupported } from '../../lib/geo'
 import { getName, setLastCode } from '../../lib/lastOrder'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -33,7 +35,14 @@ const missing = ref(false)
 const offline = ref(false)
 const copied = ref(false)
 
+// Posición del propio cliente, solo para mostrarla en su mapa: nunca se envía a ningún lado.
+const mine = ref<{ lat: number; lng: number } | null>(null)
+const mineError = ref('')
+const fetchedAt = ref(Date.now())
+const clock = ref(Date.now())
+
 let timer: number | undefined
+let clockTimer: number | undefined
 
 const STEPS = computed<{ status: OrderStatus; label: string }[]>(() =>
   order.value?.modality === 'delivery'
@@ -96,6 +105,35 @@ const runText = computed(() => {
   } antes de la tuya.`
 })
 
+// Segundos desde que el repartidor mandó su último punto (suma lo que pasó desde que lo pedimos).
+const driverAge = computed(() => {
+  const driver = order.value?.driver
+  if (!driver) return 0
+  return driver.age_seconds + Math.max(0, Math.round((clock.value - fetchedAt.value) / 1000))
+})
+
+const STALE_AFTER = 180
+
+const driverText = computed(() => {
+  const driver = order.value?.driver
+  if (!driver) return ''
+
+  return driver.distance_m === null
+    ? 'El repartidor ya está en camino hacia tu entrega.'
+    : `El repartidor está ${distanceLabel(driver.distance_m)} de tu entrega.`
+})
+
+async function showMine() {
+  mineError.value = ''
+
+  try {
+    const point = await getPosition()
+    mine.value = { lat: point.lat, lng: point.lng }
+  } catch (e) {
+    mineError.value = geoErrorMessage(e)
+  }
+}
+
 const etaText = computed(() => {
   const current = order.value
   if (!current?.eta_at || isFinished.value) return ''
@@ -146,6 +184,7 @@ async function refresh() {
     }
 
     missing.value = false
+    fetchedAt.value = Date.now()
     order.value = result
     setLastCode(result.tracking_code)
     if (result.status === 'delivered' || result.status === 'cancelled') stopPolling()
@@ -198,6 +237,7 @@ watch(code, () => void start())
 onMounted(() => {
   document.title = `Seguí tu pedido · ${businessName}`
   document.addEventListener('visibilitychange', onVisible)
+  clockTimer = window.setInterval(() => (clock.value = Date.now()), 5000)
 
   if (isSupabaseConfigured) {
     // Los ajustes (alias/CBU, WhatsApp) se cargan aparte; si fallan, el pedido igual se ve.
@@ -213,6 +253,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling()
+  window.clearInterval(clockTimer)
   document.removeEventListener('visibilitychange', onVisible)
 })
 </script>
@@ -394,6 +435,46 @@ onUnmounted(() => {
 
         <p class="mt-3 text-xs text-ink-soft">
           Mostramos solo la calle de cada parada, sin números ni nombres.
+        </p>
+      </section>
+
+      <!-- Dónde está el repartidor (solo cuando este pedido es la próxima parada) -->
+      <section
+        v-if="order.status === 'on_the_way' && order.driver"
+        class="pt-9"
+        aria-labelledby="map-title"
+      >
+        <h2
+          id="map-title"
+          class="font-display border-b border-ink pb-2.5 text-[1.75rem] font-semibold leading-none tracking-tight"
+        >
+          Dónde está tu delivery
+        </h2>
+
+        <p class="mt-3 text-[15px] font-medium" data-testid="driver-text">{{ driverText }}</p>
+        <p class="mt-1 text-sm text-ink-soft">
+          Última actualización {{ ageLabel(driverAge) }}.
+          <template v-if="driverAge > STALE_AFTER">
+            Hace un rato que no recibimos señal del repartidor; mostramos su último punto.
+          </template>
+        </p>
+
+        <div class="mt-4">
+          <DriverMap :lat="order.driver.lat" :lng="order.driver.lng" :mine="mine" />
+        </div>
+
+        <button
+          v-if="geolocationSupported() && !mine"
+          type="button"
+          class="btn-line btn-small mt-3"
+          @click="showMine"
+        >
+          <MapPin class="size-4" aria-hidden="true" />
+          Mostrar mi ubicación en el mapa
+        </button>
+        <p v-if="mineError" class="mt-2 text-sm text-accent-deep" role="alert">{{ mineError }}</p>
+        <p class="mt-2 text-xs text-ink-soft">
+          Solo ves al repartidor cuando tu pedido es la próxima parada. Tu ubicación en el mapa no se envía a nadie.
         </p>
       </section>
 

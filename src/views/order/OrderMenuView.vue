@@ -17,6 +17,7 @@ import {
   loadZones
 } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
+import { geoErrorMessage, geolocationSupported, getPosition } from '../../lib/geo'
 import {
   clearSubmitToken,
   getContact,
@@ -185,6 +186,26 @@ const streetNumber = ref(saved.number)
 const reference = ref(saved.reference)
 const cashFrom = ref('')
 
+// Ubicación opcional para delivery: deja que el repartidor avise solo cuando está cerca.
+const destPoint = ref<{ lat: number; lng: number; accuracy: number | null } | null>(null)
+const locating = ref(false)
+const locError = ref('')
+
+async function useMyLocation() {
+  if (locating.value) return
+  locating.value = true
+  locError.value = ''
+
+  try {
+    destPoint.value = await getPosition()
+  } catch (e) {
+    destPoint.value = null
+    locError.value = geoErrorMessage(e)
+  } finally {
+    locating.value = false
+  }
+}
+
 const enabledModalities = computed(() =>
   (['pickup', 'delivery'] as const).filter((m) =>
     m === 'pickup' ? settings.value?.pickup_enabled : settings.value?.delivery_enabled
@@ -303,7 +324,9 @@ async function send() {
         street: street_,
         number: number_,
         reference: reference.value.trim(),
-        cashFrom: cash
+        cashFrom: cash,
+        destLat: modality.value === 'delivery' ? (destPoint.value?.lat ?? null) : null,
+        destLng: modality.value === 'delivery' ? (destPoint.value?.lng ?? null) : null
       })
 
       setName(name)
@@ -716,6 +739,27 @@ onUnmounted(() => {
               class="field"
             />
           </div>
+
+          <div v-if="geolocationSupported()" class="mt-4 border border-ink/40 p-3">
+            <p class="text-sm font-medium">Ubicación de la entrega (opcional)</p>
+            <p class="mt-1 text-sm text-ink-soft">
+              Si la compartís, el repartidor te avisa solo cuando está cerca y ves a qué distancia viene.
+              Se usa únicamente para este pedido.
+            </p>
+
+            <p v-if="destPoint" class="mt-2 text-sm font-semibold text-open" role="status">
+              Ubicación guardada<template v-if="destPoint.accuracy"> (precisión de unos {{ Math.round(destPoint.accuracy) }} m)</template>.
+              <button type="button" class="ml-1 font-normal underline underline-offset-4" @click="destPoint = null">
+                Quitar
+              </button>
+            </p>
+
+            <button v-else type="button" class="btn-line btn-small mt-3" :disabled="locating" @click="useMyLocation">
+              {{ locating ? 'Buscando tu ubicación…' : 'Usar mi ubicación' }}
+            </button>
+
+            <p v-if="locError" class="mt-2 text-sm text-accent-deep" role="alert">{{ locError }}</p>
+          </div>
         </template>
       </template>
 
@@ -795,6 +839,7 @@ onUnmounted(() => {
         {{ settings?.retention_days ?? 15 }} días después de terminado. Quien tenga tu código ve el
         estado del pedido, pero no tus datos. Si va en delivery, los demás clientes de la misma salida
         ven {{ settings?.stops_visibility === 'zone' ? 'tu zona' : 'la calle de tu entrega (sin número)' }}.
+        Si compartís tu ubicación, se borra junto con tus demás datos y nadie la ve en pantalla.
       </p>
     </BottomSheet>
   </div>

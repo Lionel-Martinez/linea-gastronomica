@@ -28,6 +28,12 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 2. `update-03-pagos-whatsapp-interruptor.sql`: formas de pago, WhatsApp, interruptor de pedidos, rol de encargado y pedidos por mesa. Quienes ya estén en `staff` pasan a ser encargados.
 3. `update-04-pedidos-a-distancia.sql` (Etapa 3A): retiro y delivery, zonas de envío, código de seguimiento, repartos con orden de paradas, límite y bloqueo por teléfono y borrado de datos personales. No cambia los pedidos por mesa. Retiro y delivery quedan apagados hasta que el encargado los encienda.
 
+4. `update-05-gps-repartidor.sql` (Etapa 3B, después de la 04): ubicación en vivo del repartidor (mapa con un punto que se mueve, solo cuando el pedido es la próxima parada), ubicación opcional del cliente y aviso automático de «Estoy cerca» a menos de 300 m. La posición del repartidor se borra al terminar el reparto.
+
+Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
+
+La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.
+
 Privacidad: teléfono, dirección y referencia se borran solos pasado el plazo que elige el encargado (7, 15 o 30 días, 15 por defecto). Si el proyecto tiene la extensión `pg_cron` activada, se ejecuta una vez por día; si no, se ejecuta cada vez que entra un pedido a distancia.
 
 Un proyecto nuevo solo necesita `schema.sql` y `seed.sql`.

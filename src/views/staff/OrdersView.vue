@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Ban, MessageCircle, Phone, Volume2, VolumeX } from '@lucide/vue'
+import { Ban, MapPin, MessageCircle, Phone, Volume2, VolumeX } from '@lucide/vue'
 import {
   blockPhone,
   friendlyError,
@@ -413,6 +413,16 @@ onUnmounted(() => {
                   <p v-if="order.delivery_reference" class="text-sm italic text-accent-deep">
                     “{{ order.delivery_reference }}”
                   </p>
+                  <a
+                    v-if="order.dest_lat !== null && order.dest_lng !== null"
+                    :href="`https://www.google.com/maps?q=${order.dest_lat},${order.dest_lng}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline underline-offset-4"
+                  >
+                    <MapPin class="size-4" aria-hidden="true" />
+                    Ver la ubicación que compartió el cliente
+                  </a>
                 </template>
 
                 <div v-if="order.customer_phone" class="flex flex-wrap gap-2 pt-1">

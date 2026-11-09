@@ -35,11 +35,11 @@ async function copy(id: string, value: string) {
       Transferí a estos datos. Esta página no procesa pagos.
     </p>
 
-    <dl class="mt-3 divide-y divide-rule border-y border-rule text-[15px]">
-      <div v-for="row in rows" :key="row.id" class="flex items-center justify-between gap-3 py-2.5">
+    <ul class="mt-3 divide-y divide-rule border-y border-rule text-[15px]">
+      <li v-for="row in rows" :key="row.id" class="flex items-center justify-between gap-3 py-2.5">
         <div class="min-w-0">
-          <dt class="text-xs text-ink-soft">{{ row.label }}</dt>
-          <dd class="break-all font-semibold tabular-nums">{{ row.value }}</dd>
+          <p class="text-xs text-ink-soft">{{ row.label }}</p>
+          <p class="break-all font-semibold tabular-nums">{{ row.value }}</p>
         </div>
 
         <button
@@ -51,8 +51,8 @@ async function copy(id: string, value: string) {
           <Check v-if="copied === row.id" class="size-4 text-open" aria-hidden="true" />
           <Copy v-else class="size-4" aria-hidden="true" />
         </button>
-      </div>
-    </dl>
+      </li>
+    </ul>
 
     <p v-if="settings?.payment_holder" class="mt-3 text-sm text-ink-soft">
       A nombre de <span class="font-medium text-ink">{{ settings.payment_holder }}</span>
