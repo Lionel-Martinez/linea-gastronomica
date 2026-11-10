@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { LogOut } from '@lucide/vue'
+import { purgeIfDue } from '../../lib/api'
 import { onSignedOut, sessionEmail, signOut } from '../../lib/auth'
 import { businessName } from '../../lib/format'
 import { panel, refreshPanel } from '../../lib/panel'
@@ -47,6 +48,7 @@ async function logout() {
 onMounted(async () => {
   email.value = await sessionEmail()
   void refreshPanel()
+  void purgeIfDue()
 
   // Si la sesión vence o se cierra en otra pestaña, volvemos al login.
   stopListening = onSignedOut(() => {

@@ -259,6 +259,15 @@ export async function getDeliveryCode(trackingCode: string): Promise<string | nu
   return (data as string | null) ?? null
 }
 
+/** Pide al servidor que borre los datos personales vencidos (el servidor decide si ya toca). */
+export async function purgeIfDue() {
+  try {
+    await db().rpc('purge_if_due')
+  } catch {
+    // Es un respaldo: si falla, el borrado automático diario sigue su curso.
+  }
+}
+
 export interface ProductInput {
   id: string | null
   category_id: string

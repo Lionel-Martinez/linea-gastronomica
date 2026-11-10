@@ -94,6 +94,20 @@ export function setContact(contact: Contact) {
   }
 }
 
+/** Borra de este celular el nombre, los datos de entrega y el último código de seguimiento. */
+export function forgetMyData() {
+  for (const key of ['lg:name', 'lg:contact', 'lg:last-code']) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // nada que borrar
+    }
+  }
+}
+
+export const hasSavedData = () =>
+  getName() !== '' || Object.values(getContact()).some((value) => value !== '') || getLastCode() !== ''
+
 /* ---------- Último código de seguimiento ---------- */
 
 export function getLastCode(): string {

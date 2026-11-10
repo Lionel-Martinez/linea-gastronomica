@@ -32,6 +32,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 5. `update-06-codigo-de-entrega.sql` (después de la 05): código de entrega de 4 dígitos para delivery, opcional por local (se enciende en **Ajustes**). El cliente lo ve en su seguimiento y el repartidor lo escribe para marcar «Entregado»; si el cliente no lo tiene, se entrega confirmando su nombre y queda registrado. Solo afecta a los pedidos nuevos.
 
+6. `update-07-borrado-de-respaldo.sql` (después de la 06): el borrado de datos personales también corre cuando el personal abre el panel (como máximo cada 6 horas), por si la extensión `pg_cron` no está habilitada. Igual conviene habilitar `pg_cron` en Supabase (Database → Extensions).
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

@@ -20,7 +20,9 @@ import { businessName, formatClock, formatPrice } from '../../lib/format'
 import { geoErrorMessage, geolocationSupported, getPosition } from '../../lib/geo'
 import {
   clearSubmitToken,
+  forgetMyData,
   getContact,
+  hasSavedData,
   getName,
   setContact,
   setLastCode,
@@ -185,6 +187,22 @@ const street = ref(saved.street)
 const streetNumber = ref(saved.number)
 const reference = ref(saved.reference)
 const cashFrom = ref('')
+
+// «Olvidar mis datos»: borra lo que este celular recuerda (útil en celulares compartidos).
+const canForget = ref(hasSavedData())
+const forgotten = ref(false)
+
+function forgetData() {
+  forgetMyData()
+  customerName.value = ''
+  phone.value = ''
+  zoneId.value = ''
+  street.value = ''
+  streetNumber.value = ''
+  reference.value = ''
+  canForget.value = false
+  forgotten.value = true
+}
 
 // Ubicación opcional para delivery: deja que el repartidor avise solo cuando está cerca.
 const destPoint = ref<{ lat: number; lng: number; accuracy: number | null } | null>(null)
@@ -840,6 +858,13 @@ onUnmounted(() => {
         estado del pedido, pero no tus datos. Si va en delivery, los demás clientes de la misma salida
         ven {{ settings?.stops_visibility === 'zone' ? 'tu zona' : 'la calle de tu entrega (sin número)' }}.
         Si compartís tu ubicación, se borra junto con tus demás datos y nadie la ve en pantalla.
+      </p>
+
+      <p v-if="remote && (canForget || forgotten)" class="mt-2 text-xs text-ink-soft">
+        <button v-if="canForget" type="button" class="min-h-11 underline underline-offset-4" @click="forgetData">
+          Olvidar mis datos guardados en este celular
+        </button>
+        <span v-else role="status">Listo: este celular ya no recuerda tus datos.</span>
       </p>
     </BottomSheet>
   </div>
