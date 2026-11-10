@@ -78,6 +78,7 @@ export interface Settings {
   delivery_enabled: boolean
   retention_days: 7 | 15 | 30
   stops_visibility: 'street' | 'zone'
+  delivery_code_enabled: boolean
 }
 
 export interface DeliveryZone {
@@ -122,6 +123,10 @@ export interface Order {
   tracking_code: string | null
   dest_lat: number | null
   dest_lng: number | null
+  /** El delivery se entrega solo con el código de 4 dígitos del cliente. */
+  code_required: boolean
+  /** Cómo se comprobó la entrega: con el código, confirmando el nombre, o sin exigencia ('' ). */
+  delivered_check: '' | 'code' | 'name'
   payment_method: PaymentMethod | ''
   status: OrderStatus
   total: number

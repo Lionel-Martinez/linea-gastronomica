@@ -30,6 +30,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 4. `update-05-gps-repartidor.sql` (Etapa 3B, después de la 04): ubicación en vivo del repartidor (mapa con un punto que se mueve, solo cuando el pedido es la próxima parada), ubicación opcional del cliente y aviso automático de «Estoy cerca» a menos de 300 m. La posición del repartidor se borra al terminar el reparto.
 
+5. `update-06-codigo-de-entrega.sql` (después de la 05): código de entrega de 4 dígitos para delivery, opcional por local (se enciende en **Ajustes**). El cliente lo ve en su seguimiento y el repartidor lo escribe para marcar «Entregado»; si el cliente no lo tiene, se entrega confirmando su nombre y queda registrado. Solo afecta a los pedidos nuevos.
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

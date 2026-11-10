@@ -19,7 +19,8 @@ const form = reactive({
   pickup_enabled: false,
   delivery_enabled: false,
   retention_days: 15 as 7 | 15 | 30,
-  stops_visibility: 'street' as 'street' | 'zone'
+  stops_visibility: 'street' as 'street' | 'zone',
+  delivery_code_enabled: false
 })
 const loading = ref(true)
 const saving = ref(false)
@@ -75,7 +76,8 @@ async function submit() {
       pickup_enabled: form.pickup_enabled,
       delivery_enabled: form.delivery_enabled,
       retention_days: Number(form.retention_days) as 7 | 15 | 30,
-      stops_visibility: form.stops_visibility
+      stops_visibility: form.stops_visibility,
+      delivery_code_enabled: form.delivery_code_enabled
     })
 
     // Se vuelve a leer de la base: lo que se muestra es lo que realmente quedó guardado.
@@ -155,6 +157,17 @@ onMounted(async () => {
             Delivery a domicilio
             <span class="mt-0.5 block text-sm text-ink-soft">
               Cargá abajo las zonas de envío con su precio. En delivery solo se acepta transferencia o efectivo.
+            </span>
+          </span>
+        </label>
+
+        <label v-if="form.delivery_enabled" class="flex items-start gap-3 text-[15px]">
+          <input v-model="form.delivery_code_enabled" type="checkbox" class="mt-1 size-4 accent-accent" />
+          <span>
+            Código de entrega
+            <span class="mt-0.5 block text-sm text-ink-soft">
+              Cada delivery nuevo tiene un código de 4 dígitos que ve el cliente. El repartidor lo escribe para
+              marcar «Entregado». Si el cliente no lo tiene, se entrega confirmando su nombre y queda registrado.
             </span>
           </span>
         </label>

@@ -30,6 +30,10 @@ export function friendlyError(error: unknown): string {
     return 'Escribí un teléfono válido, con código de área (entre 8 y 15 números).'
   if (message.includes('phone_blocked'))
     return 'No pudimos recibir tu pedido. Comunicate con el local.'
+  if (message.includes('invalid_code'))
+    return 'El código no coincide. Pedíselo de nuevo al cliente, o confirmá su nombre si no lo tiene.'
+  if (message.includes('code_required'))
+    return 'Este pedido se entrega con el código del cliente.'
   if (message.includes('invalid_zone'))
     return 'Elegí una zona de entrega de la lista.'
   if (message.includes('invalid_address'))
@@ -242,6 +246,19 @@ export async function setOrderStatus(id: string, status: OrderStatus) {
   if (!data?.length) throw new Error('not_allowed')
 }
 
+/** Entrega un delivery comprobando el código del cliente (o, sin código, confirmando su nombre). */
+export async function completeDelivery(id: string, code: string | null, byName = false) {
+  const { error } = await db().rpc('complete_delivery', { p_id: id, p_code: code, p_by_name: byName })
+  if (error) throw error
+}
+
+/** Código de entrega de 4 dígitos, visible solo para quien tiene el código de seguimiento. */
+export async function getDeliveryCode(trackingCode: string): Promise<string | null> {
+  const { data, error } = await db().rpc('get_delivery_code', { p_code: trackingCode })
+  if (error) throw error
+  return (data as string | null) ?? null
+}
+
 export interface ProductInput {
   id: string | null
   category_id: string
@@ -310,7 +327,8 @@ export async function saveSettings(settings: Settings) {
       pickup_enabled: settings.pickup_enabled,
       delivery_enabled: settings.delivery_enabled,
       retention_days: settings.retention_days,
-      stops_visibility: settings.stops_visibility
+      stops_visibility: settings.stops_visibility,
+      delivery_code_enabled: settings.delivery_code_enabled
     })
     .eq('id', 1)
     .select('id')

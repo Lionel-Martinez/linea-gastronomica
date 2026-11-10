@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { BellRing, Check, MapPin, MessageCircle, Navigation } from '@lucide/vue'
+import { BellRing, Check, MapPin, MessageCircle, Navigation, Phone } from '@lucide/vue'
 import { useLocationSharing } from '../../composables/useLocationSharing'
 import { ageLabel } from '../../lib/geo'
 import {
+  completeDelivery,
   friendlyError,
   listOrders,
   markNear,
@@ -122,6 +123,37 @@ const depart = () =>
 
 const near = (order: Order) => run(() => markNear(order.id))
 const deliver = (order: Order) => run(() => setOrderStatus(order.id, 'delivered'))
+
+// Entrega con código: el repartidor escribe lo que le dice el cliente.
+const typedCodes = ref<Record<string, string>>({})
+const askingName = ref<string | null>(null) // pedido para el que se está confirmando el nombre
+
+const digitsOnly = (id: string) => (typedCodes.value[id] ?? '').replace(/\D/g, '').slice(0, 4)
+function onCodeInput(id: string, event: Event) {
+  const input = event.target as HTMLInputElement
+  const clean = input.value.replace(/\D/g, '').slice(0, 4)
+  input.value = clean // se limpia ya mismo: solo entran números
+  typedCodes.value[id] = clean
+}
+
+const codeErrors = ref<Record<string, string>>({})
+const deliverWithCode = (order: Order) =>
+  run(async () => {
+    codeErrors.value[order.id] = ''
+    try {
+      await completeDelivery(order.id, digitsOnly(order.id))
+    } catch (e) {
+      // El mensaje se muestra junto al campo, donde está mirando el repartidor.
+      codeErrors.value[order.id] = friendlyError(e)
+    }
+  })
+const deliverByName = (order: Order) =>
+  run(async () => {
+    await completeDelivery(order.id, null, true)
+    askingName.value = null
+  })
+
+const callHref = (order: Order) => `tel:+${whatsappNumber(order.customer_phone)}`
 
 onMounted(async () => {
   document.title = `Reparto · ${businessName}`
@@ -259,6 +291,11 @@ onUnmounted(() => {
                 {{ order.near_at ? 'Aviso enviado' : 'Estoy cerca' }}
               </button>
 
+              <a v-if="order.customer_phone" :href="callHref(order)" class="btn-line btn-small">
+                <Phone class="size-4" aria-hidden="true" />
+                Llamar
+              </a>
+
               <a
                 v-if="order.customer_phone"
                 :href="nearHref(order)"
@@ -270,10 +307,71 @@ onUnmounted(() => {
                 Avisar por WhatsApp
               </a>
 
-              <button type="button" class="btn-solid btn-small" :disabled="busy" @click="deliver(order)">
+              <button
+                v-if="!order.code_required"
+                type="button"
+                class="btn-solid btn-small"
+                :disabled="busy"
+                @click="deliver(order)"
+              >
                 <Check class="size-4" aria-hidden="true" />
                 Entregado
               </button>
+            </div>
+
+            <!-- Entrega con código del cliente -->
+            <div v-if="order.code_required" class="mt-4 border border-ink/40 p-3" data-code-box>
+              <label :for="`code-${order.id}`" class="block text-sm font-medium">
+                Código de entrega que te dice el cliente
+              </label>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  :id="`code-${order.id}`"
+                  :value="typedCodes[order.id] ?? ''"
+                  @input="onCodeInput(order.id, $event)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="4"
+                  autocomplete="off"
+                  class="field !w-28 text-center text-lg tracking-[0.3em] tabular-nums"
+                />
+                <button
+                  type="button"
+                  class="btn-solid btn-small"
+                  :disabled="busy || digitsOnly(order.id).length !== 4"
+                  @click="deliverWithCode(order)"
+                >
+                  <Check class="size-4" aria-hidden="true" />
+                  Entregar
+                </button>
+              </div>
+
+              <p v-if="codeErrors[order.id]" class="mt-2 text-sm font-medium text-accent-deep" role="alert">
+                {{ codeErrors[order.id] }}
+              </p>
+
+              <button
+                v-if="askingName !== order.id"
+                type="button"
+                class="mt-2 min-h-11 text-sm underline underline-offset-4"
+                @click="askingName = order.id"
+              >
+                El cliente no tiene el código
+              </button>
+
+              <div v-else class="mt-3 space-y-2 text-sm" role="group" aria-label="Entregar confirmando el nombre">
+                <p>
+                  Pedile que te diga su nombre. ¿Dice «<strong>{{ order.customer_name }}</strong>»? Queda registrado
+                  que se entregó sin código.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" class="btn-solid btn-small" :disabled="busy" @click="deliverByName(order)">
+                    Sí, entregar sin código
+                  </button>
+                  <button type="button" class="btn-line btn-small" @click="askingName = null">Cancelar</button>
+                </div>
+              </div>
             </div>
           </li>
         </ol>

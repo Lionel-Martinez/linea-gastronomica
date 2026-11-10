@@ -7,7 +7,7 @@ import DriverMap from '../../components/order/DriverMap.vue'
 import PaymentInfo from '../../components/order/PaymentInfo.vue'
 import TrackCodeForm from '../../components/order/TrackCodeForm.vue'
 import WhatsAppProof from '../../components/order/WhatsAppProof.vue'
-import { getOrderByCode, loadSettings } from '../../lib/api'
+import { getDeliveryCode, getOrderByCode, loadSettings } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
 import { ageLabel, distanceLabel, geoErrorMessage, getPosition, geolocationSupported } from '../../lib/geo'
 import { getName, setLastCode } from '../../lib/lastOrder'
@@ -34,6 +34,8 @@ const settings = ref<Settings | null>(null)
 const missing = ref(false)
 const offline = ref(false)
 const copied = ref(false)
+const deliveryCode = ref<string | null>(null)
+let codeFetched = false
 
 // Posición del propio cliente, solo para mostrarla en su mapa: nunca se envía a ningún lado.
 const mine = ref<{ lat: number; lng: number } | null>(null)
@@ -187,6 +189,15 @@ async function refresh() {
     fetchedAt.value = Date.now()
     order.value = result
     setLastCode(result.tracking_code)
+
+    // Código de entrega (si el local lo usa): se pide una sola vez, no cambia.
+    if (result.modality === 'delivery' && !codeFetched && result.status !== 'delivered' && result.status !== 'cancelled') {
+      codeFetched = true
+      getDeliveryCode(result.tracking_code)
+        .then((value) => (deliveryCode.value = value))
+        .catch(() => (codeFetched = false))
+    }
+    if (result.status === 'delivered' || result.status === 'cancelled') deliveryCode.value = null
     if (result.status === 'delivered' || result.status === 'cancelled') stopPolling()
   } catch {
     offline.value = true
@@ -340,6 +351,20 @@ onUnmounted(() => {
             <Check v-if="copied" class="size-5 text-open" aria-hidden="true" />
             <Copy v-else class="size-5" aria-hidden="true" />
           </button>
+        </div>
+
+        <div v-if="deliveryCode && !isFinished" class="mt-4 border border-ink p-3" data-testid="delivery-code-box">
+          <h3 class="text-sm font-medium text-ink-soft">Código de entrega</h3>
+          <p
+            class="font-display mt-1 text-[2rem] font-semibold leading-none tracking-[0.2em] tabular-nums"
+            data-testid="delivery-code"
+          >
+            {{ deliveryCode }}
+          </p>
+          <p class="mt-2 text-sm text-ink-soft">
+            Decíselo al repartidor cuando te lo entregue. No lo compartas antes: es lo que asegura que el pedido
+            llega a vos.
+          </p>
         </div>
 
         <a

@@ -435,6 +435,10 @@ onUnmounted(() => {
                     <MessageCircle class="size-4" aria-hidden="true" />
                     WhatsApp
                   </a>
+                  <a :href="`tel:+${whatsappNumber(order.customer_phone)}`" class="btn-line btn-small">
+                    <Phone class="size-4" aria-hidden="true" />
+                    Llamar
+                  </a>
                   <button type="button" class="btn-line btn-small" @click="block(order)">
                     <Ban class="size-4" aria-hidden="true" />
                     Bloquear
