@@ -55,7 +55,7 @@ interface Day {
 type Modal = 'hours' | 'wifi' | 'opinion' | null
 
 // URL del portafolio de quien desarrolla el menú. Si queda vacío, el enlace no se muestra.
-const PORTFOLIO_URL = ''
+const PORTFOLIO_URL = 'https://lm-studio.com.ar'
 
 const WEEKDAYS: Record<string, number> = {
   Sunday: 0,
