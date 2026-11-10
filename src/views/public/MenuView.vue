@@ -809,7 +809,7 @@ onUnmounted(() => {
               :href="PORTFOLIO_URL"
               target="_blank"
               rel="noopener noreferrer"
-              class="font-semibold text-ink underline decoration-rule underline-offset-4 hover:decoration-ink"
+              class="inline-flex min-h-11 items-center font-semibold text-ink underline decoration-rule underline-offset-4 hover:decoration-ink"
             >
               LM Studio
             </a>
