@@ -1,4 +1,5 @@
 import { db } from './supabase'
+import { getTurnstileToken, turnstileEnabled } from './turnstile'
 import type {
   BlockedPhone,
   Category,
@@ -24,6 +25,10 @@ export function friendlyError(error: unknown): string {
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
     return 'Ya hay varios pedidos esperando confirmación. Esperá a que el local los confirme o avisale al personal.'
+  if (message.includes('turnstile_failed') || message.includes('turnstile_unavailable'))
+    return 'No pudimos verificar que sos una persona. Revisá tu conexión y probá de nuevo.'
+  if (message.includes('gate_denied') || message.includes('server_misconfigured') || message.includes('bad_origin'))
+    return 'El pedido no se pudo enviar por un problema del local. Avisale al personal.'
   if (message.includes('table_limit'))
     return 'Esta mesa ya tiene varios pedidos en curso. Esperá a que los entreguen o avisale al personal.'
   if (message.includes('phone_hour_limit'))
@@ -149,7 +154,7 @@ export async function createOrder(
   token: string,
   method: PaymentMethod
 ): Promise<string> {
-  const { data, error } = await db().rpc('create_order', {
+  const { data, error } = await placeOrder('table', 'create_order', {
     p_table: table,
     p_items: items,
     p_name: name,
@@ -159,6 +164,29 @@ export async function createOrder(
 
   if (error) throw error
   return data as string
+}
+
+/**
+ * Crea el pedido. Si el local activó Turnstile, pasa por /api/pedido (el servidor verifica que sea
+ * una persona); si no, va directo a la base como siempre.
+ */
+async function placeOrder(
+  kind: 'table' | 'remote',
+  fn: 'create_order' | 'create_remote_order',
+  args: Record<string, unknown>
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  if (!turnstileEnabled) return db().rpc(fn, args)
+
+  const turnstile = await getTurnstileToken()
+  const reply = await fetch('/api/pedido', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, args, turnstile })
+  })
+  const body = await reply.json().catch(() => null)
+
+  if (!reply.ok) return { data: null, error: { message: String(body?.message ?? 'unknown') } }
+  return { data: body, error: null }
 }
 
 export interface RemoteOrderInput {
@@ -180,7 +208,7 @@ export interface RemoteOrderInput {
 
 /** Pedido para retirar o delivery. Devuelve el id y el código de seguimiento. */
 export async function createRemoteOrder(input: RemoteOrderInput) {
-  const { data, error } = await db().rpc('create_remote_order', {
+  const { data, error } = await placeOrder('remote', 'create_remote_order', {
     p_modality: input.modality,
     p_items: input.items,
     p_name: input.name,

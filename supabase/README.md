@@ -45,6 +45,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 8. `update-09-limites-de-pedidos.sql` (después de la 08): límites contra pedidos falsos que el encargado ajusta en **Ajustes**: pedidos en curso por mesa (3), sin confirmar por teléfono (5), pedidos por teléfono por hora (3) y retiro/delivery por hora en todo el local (20).
 
+9. `update-10-compuerta-turnstile.sql` (después de la 09): prepara la **compuerta opcional** para Turnstile (anti-bots). No cambia nada hasta que se enciende. La guía completa está en `Guia-Turnstile.md` (carpeta Seguridad del vault); resumen: crear el widget en Cloudflare, cargar las variables `TURNSTILE_SECRET`, `ORDER_GATE`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `VITE_TURNSTILE_SITEKEY` en Pages, redeployar y recién ahí guardar `order_gate` en la tabla `app_secrets`.
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.
