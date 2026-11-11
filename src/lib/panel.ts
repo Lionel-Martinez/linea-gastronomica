@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { loadSettings } from './api'
-import { isManager } from './auth'
+import { currentRole } from './auth'
+import type { Role } from './types'
 
 // Estado del panel que comparten el menú de navegación y las pantallas:
 // qué formas de pedido tiene el local y si la persona es encargada.
@@ -10,11 +11,13 @@ export const panel = reactive({
   pickup: false,
   delivery: false,
   remote: false, // retiro o delivery
-  manager: false
+  manager: false,
+  role: null as Role | null
 })
 
 export async function refreshPanel() {
-  panel.manager = await isManager()
+  panel.role = await currentRole()
+  panel.manager = panel.role === 'manager'
 
   try {
     const settings = await loadSettings()

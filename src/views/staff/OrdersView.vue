@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { panel } from '../../lib/panel'
+import { canBlockPhones, canMove, canSeeContact } from '../../lib/roles'
 import { Ban, MapPin, MessageCircle, Phone, Volume2, VolumeX } from '@lucide/vue'
 import {
   blockPhone,
@@ -78,6 +80,11 @@ const isRemote = (order: Order) => order.modality !== 'dine_in'
 
 // Qué botón principal corresponde: los delivery listos salen a repartir desde "Reparto".
 function nextAction(order: Order): { to: OrderStatus; label: string } | null {
+  const action = baseAction(order)
+  return action && canMove(panel.role, order.modality, order.status, action.to) ? action : null
+}
+
+function baseAction(order: Order): { to: OrderStatus; label: string } | null {
   switch (order.status) {
     case 'pending':
       return { to: 'preparing', label: 'Confirmar' }
@@ -87,6 +94,8 @@ function nextAction(order: Order): { to: OrderStatus; label: string } | null {
       if (order.modality === 'delivery') return null
       return { to: 'delivered', label: order.modality === 'pickup' ? 'Marcar retirado' : 'Marcar entregado' }
     case 'on_the_way':
+      // Con código, la entrega se confirma desde "Reparto" (ahí se escribe el código).
+      if (order.code_required) return null
       return { to: 'delivered', label: 'Marcar entregado' }
     default:
       return null
@@ -94,9 +103,14 @@ function nextAction(order: Order): { to: OrderStatus; label: string } | null {
 }
 
 const canCancel = (order: Order) =>
-  order.status === 'pending' ||
+  canMove(panel.role, order.modality, order.status, 'cancelled') &&
+  (order.status === 'pending' ||
   order.status === 'preparing' ||
-  (isRemote(order) && (order.status === 'ready' || order.status === 'on_the_way'))
+  (isRemote(order) && (order.status === 'ready' || order.status === 'on_the_way')))
+
+const seeContact = computed(() => canSeeContact(panel.role))
+const canBlock = computed(() => canBlockPhones(panel.role))
+const canRun = computed(() => panel.role === 'manager' || panel.role === 'counter')
 
 const sortedItems = (order: Order): OrderItem[] =>
   [...order.order_items].sort((a, b) => a.name.localeCompare(b.name))
@@ -400,7 +414,7 @@ onUnmounted(() => {
               </header>
 
               <!-- Retiro y delivery: contacto y dirección -->
-              <div v-if="isRemote(order)" class="mt-3 space-y-1 border-t border-rule pt-3 text-[15px]">
+              <div v-if="isRemote(order) && seeContact" class="mt-3 space-y-1 border-t border-rule pt-3 text-[15px]">
                 <p v-if="order.customer_phone" class="flex items-center gap-2">
                   <Phone class="size-4 shrink-0 text-ink-soft" aria-hidden="true" />
                   <span class="tabular-nums">{{ order.customer_phone }}</span>
@@ -439,7 +453,7 @@ onUnmounted(() => {
                     <Phone class="size-4" aria-hidden="true" />
                     Llamar
                   </a>
-                  <button type="button" class="btn-line btn-small" @click="block(order)">
+                  <button v-if="canBlock" type="button" class="btn-line btn-small" @click="block(order)">
                     <Ban class="size-4" aria-hidden="true" />
                     Bloquear
                   </button>
@@ -507,11 +521,11 @@ onUnmounted(() => {
                 </button>
 
                 <RouterLink
-                  v-else-if="order.status === 'ready' && order.modality === 'delivery'"
+                  v-else-if="canRun && (order.status === 'ready' || (order.status === 'on_the_way' && order.code_required)) && order.modality === 'delivery'"
                   :to="{ name: 'staff-run' }"
                   class="btn-solid btn-small"
                 >
-                  Armar el reparto
+                  {{ order.status === 'ready' ? 'Armar el reparto' : 'Ir al reparto' }}
                 </RouterLink>
 
                 <button

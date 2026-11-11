@@ -34,6 +34,17 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 6. `update-07-borrado-de-respaldo.sql` (después de la 06): el borrado de datos personales también corre cuando el personal abre el panel (como máximo cada 6 horas), por si la extensión `pg_cron` no está habilitada. Igual conviene habilitar `pg_cron` en Supabase (Database → Extensions).
 
+7. `update-08-roles-y-contactos.sql` (después de la 07): **roles con permisos reales**. El teléfono y la dirección de los clientes pasan a una tabla aparte que solo ven quienes corresponde. Las cuentas existentes quedan como *manager* (las que eran encargadas) o *counter* (el resto). Roles: `manager` (encargado, puede todo), `counter` (mostrador), `waiter` (mozo), `kitchen` (cocina), `courier` (repartidor). Para dar un rol, primero crear el usuario en Authentication → Users (con signups apagados) y después en el SQL Editor:
+
+   ```sql
+   insert into public.staff (user_id, role) values ('<id del usuario>', 'kitchen');
+   update public.staff set role = 'courier' where user_id = '<id del usuario>';
+   ```
+
+   Después de correr esta actualización hay que publicar el front-end nuevo (hace `git pull` y deploy), porque el viejo no entiende las tablas nuevas.
+
+8. `update-09-limites-de-pedidos.sql` (después de la 08): límites contra pedidos falsos que el encargado ajusta en **Ajustes**: pedidos en curso por mesa (3), sin confirmar por teléfono (5), pedidos por teléfono por hora (3) y retiro/delivery por hora en todo el local (20).
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

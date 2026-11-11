@@ -1,7 +1,8 @@
 import { db, supabase } from './supabase'
+import type { Role } from './types'
 
 // Cache del resultado "¿es personal?" para no consultar en cada cambio de ruta.
-let cache: { uid: string; ok: boolean; manager: boolean } | null = null
+let cache: { uid: string; ok: boolean; role: Role | null } | null = null
 
 /**
  * true si hay una sesión iniciada Y esa cuenta está en la tabla staff.
@@ -22,19 +23,24 @@ export async function currentStaff(): Promise<boolean> {
 
   const { data: row, error } = await supabase
     .from('staff')
-    .select('user_id, is_manager')
+    .select('user_id, role')
     .eq('user_id', uid)
     .maybeSingle()
 
   const ok = !error && Boolean(row)
-  cache = { uid, ok, manager: ok && Boolean(row?.is_manager) }
+  cache = { uid, ok, role: ok ? ((row?.role as Role) ?? 'waiter') : null }
   return ok
 }
 
 /** true si además de ser personal es encargado (puede cambiar los ajustes). */
 export async function isManager(): Promise<boolean> {
-  if (!(await currentStaff())) return false
-  return cache?.manager ?? false
+  return (await currentRole()) === 'manager'
+}
+
+/** Rol de la persona con sesión (null si no es personal). */
+export async function currentRole(): Promise<Role | null> {
+  if (!(await currentStaff())) return null
+  return cache?.role ?? null
 }
 
 export async function signIn(email: string, password: string) {

@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { currentStaff, isManager } from '../lib/auth'
+import { currentRole, currentStaff } from '../lib/auth'
+import { canOpenRoute, ROLE_ROUTES } from '../lib/roles'
 
 declare module 'vue-router' {
   interface RouteMeta {
     staff?: boolean
-    manager?: boolean
   }
 }
 
@@ -64,7 +64,6 @@ const router = createRouter({
         {
           path: 'ajustes',
           name: 'staff-settings',
-          meta: { manager: true },
           component: () => import('../views/staff/SettingsView.vue')
         },
         {
@@ -86,9 +85,13 @@ router.beforeEach(async (to) => {
 
   if (!(await currentStaff())) return { name: 'staff-login', query: { redirect: to.fullPath } }
 
-  // Los ajustes del local son solo para encargados.
-  if (to.matched.some((record) => record.meta.manager) && !(await isManager())) {
-    return { name: 'staff-orders' }
+  // Cada rol entra solo a sus pantallas; si pide otra, va a la primera que le corresponde.
+  const role = await currentRole()
+  const name = String(to.name ?? '')
+
+  if (name.startsWith('staff-') && name !== 'staff-login' && !canOpenRoute(role, name)) {
+    const home = role ? ROLE_ROUTES[role][0] : 'staff-login'
+    return { name: home }
   }
 
   return true

@@ -20,7 +20,11 @@ const form = reactive({
   delivery_enabled: false,
   retention_days: 15 as 7 | 15 | 30,
   stops_visibility: 'street' as 'street' | 'zone',
-  delivery_code_enabled: false
+  delivery_code_enabled: false,
+  max_active_per_table: 3,
+  max_pending_per_phone: 5,
+  max_orders_per_phone_hour: 3,
+  max_remote_per_hour: 20
 })
 const loading = ref(true)
 const saving = ref(false)
@@ -60,6 +64,18 @@ async function submit() {
     return
   }
 
+  const limits = [
+    ['mesa', form.max_active_per_table, 20],
+    ['pendientes por teléfono', form.max_pending_per_phone, 20],
+    ['pedidos por teléfono por hora', form.max_orders_per_phone_hour, 20],
+    ['pedidos del local por hora', form.max_remote_per_hour, 200]
+  ] as const
+  const badLimit = limits.find(([, value, max]) => !Number.isInteger(Number(value)) || Number(value) < 1 || Number(value) > max)
+  if (badLimit) {
+    error.value = `El límite de ${badLimit[0]} tiene que ser un número entre 1 y ${badLimit[2]}.`
+    return
+  }
+
   saving.value = true
   saved.value = false
   error.value = ''
@@ -77,7 +93,11 @@ async function submit() {
       delivery_enabled: form.delivery_enabled,
       retention_days: Number(form.retention_days) as 7 | 15 | 30,
       stops_visibility: form.stops_visibility,
-      delivery_code_enabled: form.delivery_code_enabled
+      delivery_code_enabled: form.delivery_code_enabled,
+      max_active_per_table: Math.trunc(Number(form.max_active_per_table)),
+      max_pending_per_phone: Math.trunc(Number(form.max_pending_per_phone)),
+      max_orders_per_phone_hour: Math.trunc(Number(form.max_orders_per_phone_hour)),
+      max_remote_per_hour: Math.trunc(Number(form.max_remote_per_hour))
     })
 
     // Se vuelve a leer de la base: lo que se muestra es lo que realmente quedó guardado.
@@ -171,6 +191,31 @@ onMounted(async () => {
             </span>
           </span>
         </label>
+
+        <fieldset class="space-y-3 border-t border-rule pt-4">
+          <legend class="text-sm font-semibold">Límites contra pedidos falsos</legend>
+          <p class="text-sm text-ink-soft">
+            Cuando se alcanza un límite, el sistema rechaza el pedido nuevo y le pide al cliente que consulte con el local.
+          </p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label for="s-lim-table" class="mb-1.5 block text-sm font-medium">Pedidos en curso por mesa</label>
+              <input id="s-lim-table" v-model.number="form.max_active_per_table" type="number" inputmode="numeric" min="1" max="20" class="field" />
+            </div>
+            <div v-if="form.pickup_enabled || form.delivery_enabled">
+              <label for="s-lim-pending" class="mb-1.5 block text-sm font-medium">Sin confirmar por teléfono</label>
+              <input id="s-lim-pending" v-model.number="form.max_pending_per_phone" type="number" inputmode="numeric" min="1" max="20" class="field" />
+            </div>
+            <div v-if="form.pickup_enabled || form.delivery_enabled">
+              <label for="s-lim-phone-hour" class="mb-1.5 block text-sm font-medium">Pedidos por teléfono por hora</label>
+              <input id="s-lim-phone-hour" v-model.number="form.max_orders_per_phone_hour" type="number" inputmode="numeric" min="1" max="20" class="field" />
+            </div>
+            <div v-if="form.pickup_enabled || form.delivery_enabled">
+              <label for="s-lim-local-hour" class="mb-1.5 block text-sm font-medium">Retiro y delivery por hora (total)</label>
+              <input id="s-lim-local-hour" v-model.number="form.max_remote_per_hour" type="number" inputmode="numeric" min="1" max="200" class="field" />
+            </div>
+          </div>
+        </fieldset>
 
         <div v-if="form.pickup_enabled || form.delivery_enabled" class="space-y-4 pt-1">
           <div>

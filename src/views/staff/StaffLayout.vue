@@ -6,6 +6,7 @@ import { purgeIfDue } from '../../lib/api'
 import { onSignedOut, sessionEmail, signOut } from '../../lib/auth'
 import { businessName } from '../../lib/format'
 import { panel, refreshPanel } from '../../lib/panel'
+import { canOpenRoute, ROLE_LABEL } from '../../lib/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -21,20 +22,18 @@ const links = computed(() =>
     { name: 'staff-orders', label: 'Pedidos', show: takesOrders.value },
     { name: 'staff-run', label: 'Reparto', show: panel.delivery },
     { name: 'staff-products', label: 'Productos', show: true },
-    { name: 'staff-settings', label: 'Ajustes', show: panel.manager },
+    { name: 'staff-settings', label: 'Ajustes', show: true },
     { name: 'staff-qr', label: 'Códigos QR', show: true }
-  ].filter((link) => link.show)
+  ].filter((link) => link.show && canOpenRoute(panel.role, link.name))
 )
 
+// Si la pantalla actual no corresponde (plan sin pedidos o sin delivery), se va a la primera disponible.
 watch(
-  () => [panel.ready, takesOrders.value, panel.delivery, route.name] as const,
-  ([ready, orders, delivery, name]) => {
-    if (ready && !orders && name === 'staff-orders') {
-      void router.replace({ name: 'staff-products' })
-    }
-
-    if (ready && !delivery && name === 'staff-run') {
-      void router.replace({ name: orders ? 'staff-orders' : 'staff-products' })
+  () => [panel.ready, links.value.map((link) => link.name).join(','), route.name] as const,
+  ([ready, , name]) => {
+    if (!ready || !links.value.length) return
+    if (!links.value.some((link) => link.name === name)) {
+      void router.replace({ name: links.value[0].name })
     }
   },
   { immediate: true }
@@ -65,7 +64,9 @@ onUnmounted(() => stopListening?.())
       <div class="wrap max-w-6xl flex items-center justify-between gap-4 py-4">
         <div class="min-w-0">
           <p class="truncate text-[13px] font-medium text-ink-soft">{{ businessName }}</p>
-          <p class="font-display text-2xl font-semibold leading-none">Personal</p>
+          <p class="font-display text-2xl font-semibold leading-none">
+            Personal<span v-if="panel.role" class="ml-2 text-sm font-medium text-ink-soft">· {{ ROLE_LABEL[panel.role] }}</span>
+          </p>
         </div>
 
         <div class="flex shrink-0 items-center gap-3">

@@ -24,6 +24,12 @@ export function friendlyError(error: unknown): string {
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
     return 'Ya hay varios pedidos esperando confirmación. Esperá a que el local los confirme o avisale al personal.'
+  if (message.includes('table_limit'))
+    return 'Esta mesa ya tiene varios pedidos en curso. Esperá a que los entreguen o avisale al personal.'
+  if (message.includes('phone_hour_limit'))
+    return 'Hiciste varios pedidos en poco tiempo. Probá de nuevo más tarde o comunicate con el local.'
+  if (message.includes('local_hour_limit'))
+    return 'El local recibió muchos pedidos en esta hora. Probá de nuevo en un rato o comunicate con el local.'
   if (message.includes('modality_disabled') || message.includes('invalid_modality'))
     return 'Por ahora el local no recibe pedidos de esta forma. Elegí otra o consultá con el local.'
   if (message.includes('invalid_phone'))
@@ -232,7 +238,48 @@ export async function listOrders(): Promise<Order[]> {
     .limit(300)
 
   if (error) throw error
-  return data as Order[]
+
+  const orders = data as Order[]
+  const ids = orders.filter((order) => order.modality !== 'dine_in').map((order) => order.id)
+
+  // Los datos de contacto viven aparte: la base solo los entrega a quien corresponde por rol.
+  const contacts = new Map<string, ContactRow>()
+
+  if (ids.length) {
+    const { data: rows, error: contactError } = await db()
+      .from('order_contacts')
+      .select('order_id, phone, street, number, reference, cash_change_from, dest_lat, dest_lng')
+      .in('order_id', ids)
+
+    if (contactError) throw contactError
+    for (const row of (rows ?? []) as ContactRow[]) contacts.set(row.order_id, row)
+  }
+
+  return orders.map((order) => {
+    const contact = contacts.get(order.id)
+
+    return {
+      ...order,
+      customer_phone: contact?.phone ?? '',
+      delivery_street: contact?.street ?? '',
+      delivery_number: contact?.number ?? '',
+      delivery_reference: contact?.reference ?? '',
+      cash_change_from: contact?.cash_change_from ?? null,
+      dest_lat: contact?.dest_lat ?? null,
+      dest_lng: contact?.dest_lng ?? null
+    }
+  })
+}
+
+interface ContactRow {
+  order_id: string
+  phone: string
+  street: string
+  number: string
+  reference: string
+  cash_change_from: number | null
+  dest_lat: number | null
+  dest_lng: number | null
 }
 
 export async function setOrderStatus(id: string, status: OrderStatus) {
@@ -337,7 +384,11 @@ export async function saveSettings(settings: Settings) {
       delivery_enabled: settings.delivery_enabled,
       retention_days: settings.retention_days,
       stops_visibility: settings.stops_visibility,
-      delivery_code_enabled: settings.delivery_code_enabled
+      delivery_code_enabled: settings.delivery_code_enabled,
+      max_active_per_table: settings.max_active_per_table,
+      max_pending_per_phone: settings.max_pending_per_phone,
+      max_orders_per_phone_hour: settings.max_orders_per_phone_hour,
+      max_remote_per_hour: settings.max_remote_per_hour
     })
     .eq('id', 1)
     .select('id')

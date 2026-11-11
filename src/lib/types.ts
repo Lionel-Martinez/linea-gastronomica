@@ -79,6 +79,10 @@ export interface Settings {
   retention_days: 7 | 15 | 30
   stops_visibility: 'street' | 'zone'
   delivery_code_enabled: boolean
+  max_active_per_table: number
+  max_pending_per_phone: number
+  max_orders_per_phone_hour: number
+  max_remote_per_hour: number
 }
 
 export interface DeliveryZone {
@@ -104,6 +108,9 @@ export interface OrderItem {
 }
 
 /** Pedido tal como lo ve el personal (con sus líneas). */
+/** Rol de la persona del personal; el encargado (manager) puede todo. */
+export type Role = 'manager' | 'counter' | 'waiter' | 'kitchen' | 'courier'
+
 export interface Order {
   id: string
   table_number: number | null
@@ -118,6 +125,7 @@ export interface Order {
   cash_change_from: number | null
   eta_at: string | null
   run_id: string | null
+  run_by: string | null
   stop_position: number | null
   near_at: string | null
   tracking_code: string | null
