@@ -8,12 +8,15 @@ import {
   loadMenu,
   removeProductImage,
   saveProduct,
+  saveProductPrice,
   uploadProductImage,
   setProductAvailable,
   type ProductInput
 } from '../../lib/api'
 import { businessName, formatPrice } from '../../lib/format'
 import { IMAGE_TYPES } from '../../lib/images'
+import { panel } from '../../lib/panel'
+import { priceOnly } from '../../lib/plans'
 import type { Category, Product } from '../../lib/types'
 
 const categories = ref<Category[]>([])
@@ -24,6 +27,8 @@ const saving = ref(false)
 const formError = ref('')
 const sheetOpen = ref(false)
 const priceText = ref('')
+// En «Carta + Panel» el local solo cambia el precio y si está disponible.
+const limited = computed(() => priceOnly(panel.plan))
 const uploading = ref(false)
 const originalImage = ref('') // la foto que tenía el producto al abrir el formulario
 const uploaded = ref<string[]>([]) // fotos subidas en esta edición (para limpiar las que no se usen)
@@ -135,6 +140,27 @@ async function submit() {
   const price = parsePrice(priceText.value)
   const image = form.image.trim()
 
+  if (limited.value && form.id) {
+    if (!Number.isFinite(price) || price < 0) {
+      formError.value = 'Ingresá un precio válido.'
+      return
+    }
+
+    saving.value = true
+    formError.value = ''
+
+    try {
+      await saveProductPrice(form.id, price, form.available)
+      sheetOpen.value = false
+      await load()
+    } catch (e) {
+      formError.value = friendlyError(e)
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+
   if (!form.name.trim()) {
     formError.value = 'Ponele un nombre al producto.'
     return
@@ -220,7 +246,7 @@ onMounted(() => {
   <main class="wrap max-w-6xl pb-16 pt-8">
     <div class="flex items-center justify-between gap-3">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Productos</h1>
-      <button type="button" class="btn-solid btn-small" :disabled="!categories.length" @click="openNew">
+      <button v-if="!limited" type="button" class="btn-solid btn-small" :disabled="!categories.length" @click="openNew">
         <Plus class="size-4" aria-hidden="true" />
         Nuevo
       </button>
@@ -303,12 +329,14 @@ onMounted(() => {
 
     <BottomSheet :open="sheetOpen" :title="form.id ? 'Editar producto' : 'Nuevo producto'" @close="closeSheet">
       <form class="space-y-4" @submit.prevent="submit">
-        <div>
+        <p v-if="limited" class="font-display text-xl font-semibold">{{ form.name }}</p>
+
+        <div v-if="!limited">
           <label for="p-name" class="mb-1.5 block text-sm font-medium">Nombre</label>
           <input id="p-name" v-model="form.name" type="text" maxlength="80" class="field" />
         </div>
 
-        <div>
+        <div v-if="!limited">
           <label for="p-desc" class="mb-1.5 block text-sm font-medium">Descripción</label>
           <textarea id="p-desc" v-model="form.description" rows="2" maxlength="240" class="field"></textarea>
         </div>
@@ -319,7 +347,7 @@ onMounted(() => {
             <input id="p-price" v-model="priceText" type="text" inputmode="decimal" placeholder="4500" class="field" />
           </div>
 
-          <div>
+          <div v-if="!limited">
             <label for="p-cat" class="mb-1.5 block text-sm font-medium">Categoría</label>
             <select id="p-cat" v-model="form.category_id" class="field">
               <option v-for="category in categories" :key="category.id" :value="category.id">
@@ -329,7 +357,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div>
+        <div v-if="!limited">
           <span class="mb-1.5 block text-sm font-medium">Foto</span>
 
           <div class="flex items-center gap-3">
@@ -377,7 +405,7 @@ onMounted(() => {
             <input v-model="form.available" type="checkbox" class="size-4 accent-accent" />
             Disponible
           </label>
-          <label class="flex items-center gap-2 text-[15px]">
+          <label v-if="!limited" class="flex items-center gap-2 text-[15px]">
             <input v-model="form.featured" type="checkbox" class="size-4 accent-accent" />
             Destacado
           </label>
@@ -389,7 +417,7 @@ onMounted(() => {
           <button type="submit" class="btn-solid flex-1" :disabled="saving">
             {{ saving ? 'Guardando…' : 'Guardar' }}
           </button>
-          <button v-if="form.id" type="button" class="btn-line" :disabled="saving" @click="remove">
+          <button v-if="form.id && !limited" type="button" class="btn-line" :disabled="saving" @click="remove">
             Eliminar
           </button>
         </div>

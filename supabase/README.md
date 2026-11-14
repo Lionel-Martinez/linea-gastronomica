@@ -51,6 +51,17 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 12. `update-12-fotos-de-productos.sql` (después de la 11): crea el depósito público `product-images` en Supabase Storage para que el encargado suba fotos de productos desde la galería (se achican solas; máximo 1 MB). Solo el encargado puede subir o borrar; todos pueden ver las fotos de la carta.
 
+13. `update-13-planes-y-combos.sql` (después de la 12): **planes (combos) por local**. Cada local tiene un plan que cambia solo LM Studio desde el SQL Editor (el encargado no puede):
+
+    ```sql
+    update public.settings set plan = 'menu';        -- Carta
+    update public.settings set plan = 'menu_panel';  -- Carta + Panel (el local solo cambia precios y «disponible»)
+    update public.settings set plan = 'orders';      -- Pedidos y delivery
+    update public.settings set plan = 'full';        -- Completo
+    ```
+
+    Los locales que ya existen quedan en `full`. La base apaga las formas de pedido que el plan no incluye y limita lo que el local puede editar; el panel muestra solo las pantallas del plan.
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

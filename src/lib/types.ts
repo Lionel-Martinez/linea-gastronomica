@@ -84,6 +84,7 @@ export interface Settings {
   max_orders_per_phone_hour: number
   max_remote_per_hour: number
   near_radius_m: 150 | 300 | 500
+  plan: Plan
 }
 
 export interface DeliveryZone {
@@ -109,6 +110,9 @@ export interface OrderItem {
 }
 
 /** Pedido tal como lo ve el personal (con sus líneas). */
+/** Combo contratado por el local (lo cambia solo LM Studio). */
+export type Plan = 'menu' | 'menu_panel' | 'orders' | 'full'
+
 /** Rol de la persona del personal; el encargado (manager) puede todo. */
 export type Role = 'manager' | 'counter' | 'waiter' | 'kitchen' | 'courier'
 

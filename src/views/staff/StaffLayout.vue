@@ -6,7 +6,8 @@ import { purgeIfDue } from '../../lib/api'
 import { onSignedOut, sessionEmail, signOut } from '../../lib/auth'
 import { businessName } from '../../lib/format'
 import { panel, refreshPanel } from '../../lib/panel'
-import { canOpenRoute, ROLE_LABEL } from '../../lib/roles'
+import { canOpen } from '../../lib/plans'
+import { ROLE_LABEL } from '../../lib/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -24,7 +25,7 @@ const links = computed(() =>
     { name: 'staff-products', label: 'Productos', show: true },
     { name: 'staff-settings', label: 'Ajustes', show: true },
     { name: 'staff-qr', label: 'Códigos QR', show: true }
-  ].filter((link) => link.show && canOpenRoute(panel.role, link.name))
+  ].filter((link) => link.show && canOpen(panel.role, panel.plan, link.name))
 )
 
 // Si la pantalla actual no corresponde (plan sin pedidos o sin delivery), se va a la primera disponible.

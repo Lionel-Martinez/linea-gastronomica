@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { currentRole, currentStaff } from '../lib/auth'
-import { canOpenRoute, ROLE_ROUTES } from '../lib/roles'
+import { ensurePanel, panel } from '../lib/panel'
+import { allowedRoutes, canOpen } from '../lib/plans'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -85,13 +86,19 @@ router.beforeEach(async (to) => {
 
   if (!(await currentStaff())) return { name: 'staff-login', query: { redirect: to.fullPath } }
 
-  // Cada rol entra solo a sus pantallas; si pide otra, va a la primera que le corresponde.
+  // Cada persona entra solo a lo que permite su rol y el plan del local; si pide otra pantalla, va a la primera que le toca.
   const role = await currentRole()
   const name = String(to.name ?? '')
 
-  if (name.startsWith('staff-') && name !== 'staff-login' && !canOpenRoute(role, name)) {
-    const home = role ? ROLE_ROUTES[role][0] : 'staff-login'
-    return { name: home }
+  if (name === 'staff-login') panel.ready = false // al iniciar sesión se vuelve a leer el rol y el plan
+
+  if (name.startsWith('staff-') && name !== 'staff-login') {
+    await ensurePanel()
+
+    if (!canOpen(role, panel.plan, name)) {
+      const home = allowedRoutes(role, panel.plan)[0]
+      return home ? { name: home } : { name: 'staff-login' }
+    }
   }
 
   return true

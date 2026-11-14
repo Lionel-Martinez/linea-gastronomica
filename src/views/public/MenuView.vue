@@ -17,7 +17,7 @@ import {
 } from '@lucide/vue'
 import menuData from '../../data/menu.json'
 import { useDialogFocus } from '../../composables/useDialogFocus'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import TrackCodeForm from '../../components/order/TrackCodeForm.vue'
 import { loadMenu } from '../../lib/api'
 import { formatPrice } from '../../lib/format'
@@ -120,12 +120,16 @@ watch(navCategories, (list) => {
   if (!list.some((category) => category.id === selectedCategory.value)) selectedCategory.value = 'all'
 })
 
+const router = useRouter()
+
 async function loadLiveMenu() {
   if (!isSupabaseConfigured) return
 
   try {
     const live = await loadMenu()
     liveSettings.value = live.settings
+    // Plan «Pedidos y delivery»: no hay carta pública, se entra directo a hacer el pedido.
+    if (live.settings.plan === 'orders') void router.replace({ name: 'remote-order' })
     if (!live.products.length) return
 
     allCategories.value = [

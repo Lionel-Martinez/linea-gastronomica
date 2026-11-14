@@ -6,7 +6,8 @@ import { businessName } from '../../lib/format'
 import BlockedPhones from '../../components/staff/BlockedPhones.vue'
 import ZonesEditor from '../../components/staff/ZonesEditor.vue'
 import { refreshPanel } from '../../lib/panel'
-import { PAYMENT_LABEL, PAYMENT_METHODS, type PaymentMethod } from '../../lib/types'
+import { hasRemoteOrdering, hasTableOrdering, PLAN_LABEL, PLAN_SUMMARY } from '../../lib/plans'
+import { PAYMENT_LABEL, PAYMENT_METHODS, type PaymentMethod, type Plan } from '../../lib/types'
 
 const form = reactive({
   table_count: 10,
@@ -25,7 +26,8 @@ const form = reactive({
   max_pending_per_phone: 5,
   max_orders_per_phone_hour: 3,
   max_remote_per_hour: 20,
-  near_radius_m: 300 as 150 | 300 | 500
+  near_radius_m: 300 as 150 | 300 | 500,
+  plan: 'full' as Plan
 })
 const loading = ref(true)
 const saving = ref(false)
@@ -147,7 +149,14 @@ onMounted(async () => {
     </p>
 
     <form v-else class="mt-8 max-w-xl space-y-6" @submit.prevent="submit">
-      <fieldset class="space-y-2">
+      <div class="border border-ink/40 p-4" data-plan>
+        <p class="text-sm text-ink-soft">Plan contratado</p>
+        <p class="font-display text-xl font-semibold">{{ PLAN_LABEL[form.plan] }}</p>
+        <p class="mt-1 text-sm text-ink-soft">{{ PLAN_SUMMARY[form.plan] }}</p>
+        <p class="mt-2 text-sm text-ink-soft">Para cambiar de plan, consultá con LM Studio.</p>
+      </div>
+
+      <fieldset v-if="hasTableOrdering(form.plan)" class="space-y-2">
         <legend class="font-display pr-3 text-xl font-semibold">Pedidos desde la mesa</legend>
         <label class="flex items-start gap-3 text-[15px]">
           <input v-model="form.ordering_enabled" type="checkbox" class="mt-1 size-4 accent-accent" />
@@ -161,7 +170,7 @@ onMounted(async () => {
         </label>
       </fieldset>
 
- <fieldset class="space-y-3 border-t border-ink pt-5">
+ <fieldset v-if="hasRemoteOrdering(form.plan)" class="space-y-3 border-t border-ink pt-5">
         <legend class="font-display pr-3 text-xl font-semibold">Pedidos desde casa</legend>
         <p class="text-sm text-ink-soft">
           El cliente arma el pedido en la carta, lo retira o pide delivery, y lo sigue con un código.
@@ -263,7 +272,7 @@ onMounted(async () => {
         </div>
       </fieldset>
 
-      <div class="border-t border-ink pt-5">
+      <div v-if="hasTableOrdering(form.plan)" class="border-t border-ink pt-5">
         <label for="s-tables" class="mb-1.5 block text-sm font-medium">Cantidad de mesas</label>
         <input id="s-tables" v-model.number="form.table_count" type="number" min="1" max="200" class="field" />
         <p class="mt-1.5 text-sm text-ink-soft">

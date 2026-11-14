@@ -27,6 +27,8 @@ export function friendlyError(error: unknown): string {
   if (message.includes('image_too_big')) return 'La foto es demasiado pesada. Probá con una más chica.'
   if (message.toLowerCase().includes('row-level security') || message.includes('Unauthorized'))
     return 'No tenés permiso para subir fotos. Solo el encargado puede hacerlo.'
+  if (message.includes('plan_not_allowed'))
+    return 'Tu plan no incluye esta acción. Consultá con LM Studio si querés ampliarlo.'
   if (message.includes('invalid_table'))
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
@@ -396,6 +398,14 @@ export async function setProductAvailable(id: string, available: boolean) {
   if (!data?.length) throw new Error('not_allowed')
 }
 
+/** Cambia solo el precio y la disponibilidad (lo único que el plan «Carta + Panel» permite). */
+export async function saveProductPrice(id: string, price: number, available: boolean) {
+  const { data, error } = await db().from('products').update({ price, available }).eq('id', id).select('id')
+
+  if (error) throw error
+  if (!data?.length) throw new Error('not_allowed')
+}
+
 const IMAGE_BUCKET = 'product-images'
 
 /** Sube la foto de un producto y devuelve su enlace público. */
@@ -428,7 +438,7 @@ export async function deleteProduct(id: string) {
   if (!data?.length) throw new Error('not_allowed')
 }
 
-export async function saveSettings(settings: Settings) {
+export async function saveSettings(settings: Omit<Settings, 'plan'>) {
   const { data, error } = await db()
     .from('settings')
     .update({

@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { loadSettings } from './api'
 import { currentRole } from './auth'
-import type { Role } from './types'
+import type { Plan, Role } from './types'
 
 // Estado del panel que comparten el menú de navegación y las pantallas:
 // qué formas de pedido tiene el local y si la persona es encargada.
@@ -12,7 +12,8 @@ export const panel = reactive({
   delivery: false,
   remote: false, // retiro o delivery
   manager: false,
-  role: null as Role | null
+  role: null as Role | null,
+  plan: 'full' as Plan
 })
 
 export async function refreshPanel() {
@@ -21,6 +22,7 @@ export async function refreshPanel() {
 
   try {
     const settings = await loadSettings()
+    panel.plan = settings.plan ?? 'full'
     panel.ordering = settings.ordering_enabled
     panel.pickup = settings.pickup_enabled
     panel.delivery = settings.delivery_enabled
@@ -30,4 +32,12 @@ export async function refreshPanel() {
   }
 
   panel.ready = true
+}
+
+/** Carga el rol y el plan una vez; las pantallas del panel y el router lo usan para decidir qué mostrar. */
+let loading: Promise<void> | null = null
+export function ensurePanel() {
+  if (panel.ready) return Promise.resolve()
+  loading ??= refreshPanel().finally(() => (loading = null))
+  return loading
 }
