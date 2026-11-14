@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { BellRing, Check, MapPin, MessageCircle, Navigation, Phone } from '@lucide/vue'
 import { useLocationSharing } from '../../composables/useLocationSharing'
+import { currentUserId } from '../../lib/auth'
 import { ageLabel } from '../../lib/geo'
 import {
   completeDelivery,
@@ -51,9 +52,36 @@ const sharedAgo = computed(() =>
   sharing.lastSentAt.value === null ? null : Math.max(0, Math.round((clock.value - sharing.lastSentAt.value) / 1000))
 )
 
+// La ubicación arranca sola con el reparto propio; si el repartidor la corta a mano, no se vuelve a prender.
+const myId = ref<string | null>(null)
+const stoppedByHand = new Set<string>()
+const myRun = computed(() => runs.value.find((group) => group.stops.some((order) => order.run_by === myId.value)))
+
 function toggleSharing(runId: string) {
-  if (sharing.sharingRun.value === runId) sharing.stop()
-  else sharing.start(runId)
+  if (sharing.sharingRun.value === runId) {
+    stoppedByHand.add(runId)
+    sharing.stop()
+  } else {
+    stoppedByHand.delete(runId)
+    sharing.start(runId)
+  }
+}
+
+/** justDeparted: el repartidor acaba de tocar «Salir a repartir» (se pide el permiso ya). Si no, solo retoma si el permiso ya estaba dado. */
+async function autoShare(justDeparted: boolean) {
+  const group = myRun.value
+  if (!group || sharing.sharingRun.value || stoppedByHand.has(group.id)) return
+
+  if (!justDeparted) {
+    try {
+      const status = await navigator.permissions?.query({ name: 'geolocation' })
+      if (status?.state !== 'granted') return
+    } catch {
+      return // sin API de permisos: queda el botón manual
+    }
+  }
+
+  sharing.start(group.id)
 }
 
 const address = (order: Order) =>
@@ -119,6 +147,8 @@ const depart = () =>
   run(async () => {
     await startRun([...selected.value])
     selected.value = []
+    await refresh()
+    await autoShare(true)
   })
 
 const near = (order: Order) => run(() => markNear(order.id))
@@ -157,7 +187,9 @@ const callHref = (order: Order) => `tel:+${whatsappNumber(order.customer_phone)}
 
 onMounted(async () => {
   document.title = `Reparto · ${businessName}`
+  myId.value = await currentUserId()
   await refresh()
+  void autoShare(false)
 
   unsubscribe = subscribeOrders(scheduleRefresh, () => {})
   pollTimer = window.setInterval(refresh, 10_000)
@@ -204,8 +236,11 @@ onUnmounted(() => {
         <!-- Compartir la ubicación de este celular con los clientes -->
         <div class="mt-4 border border-ink/40 p-3" data-sharing>
           <p class="text-sm text-ink-soft">
-            Compartí tu ubicación para que cada cliente vea al repartidor cuando es su turno y el
-            «Estoy cerca» se avise solo. Dejá esta pantalla abierta y encendida: si el celular se bloquea, se corta.
+            La ubicación se comparte sola al salir a repartir, para que cada cliente te vea cuando es su turno y el
+            aviso «estoy cerca» salga solo.
+          </p>
+          <p class="mt-2 text-sm font-semibold">
+            No bloquees el celular ni cambies de aplicación: la ubicación solo se envía con esta pantalla abierta.
           </p>
 
           <button
@@ -224,6 +259,9 @@ onUnmounted(() => {
             <template v-if="sharedAgo !== null"> · última vez {{ ageLabel(sharedAgo) }}</template>
             <template v-else> · buscando tu ubicación…</template>
             <template v-if="sharing.accuracy.value"> · precisión de unos {{ Math.round(sharing.accuracy.value) }} m</template>
+          </p>
+          <p v-if="sharing.interrupted.value && sharing.sharingRun.value === group.id" class="mt-2 text-sm font-medium text-accent-deep" role="alert">
+            Se pausó mientras la pantalla estuvo apagada. Retomando tu ubicación…
           </p>
           <p v-if="sharing.error.value && sharing.sharingRun.value !== group.id" class="mt-2 text-sm text-accent-deep" role="alert">
             {{ sharing.error.value }}

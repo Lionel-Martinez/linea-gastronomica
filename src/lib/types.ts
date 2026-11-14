@@ -83,6 +83,7 @@ export interface Settings {
   max_pending_per_phone: number
   max_orders_per_phone_hour: number
   max_remote_per_hour: number
+  near_radius_m: 150 | 300 | 500
 }
 
 export interface DeliveryZone {

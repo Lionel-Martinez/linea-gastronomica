@@ -10,6 +10,7 @@ import WhatsAppProof from '../../components/order/WhatsAppProof.vue'
 import { getDeliveryCode, getOrderByCode, loadSettings } from '../../lib/api'
 import { businessName, formatClock, formatPrice } from '../../lib/format'
 import { ageLabel, distanceLabel, geoErrorMessage, getPosition, geolocationSupported } from '../../lib/geo'
+import { alertNearby } from '../../lib/alert'
 import { getName, setLastCode } from '../../lib/lastOrder'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -204,17 +205,11 @@ async function refresh() {
   }
 }
 
-// Cuando el repartidor avisa que está cerca, el celular vibra una vez.
+// Cuando el repartidor avisa que está cerca, el celular vibra y suena un tono corto.
 watch(
   () => order.value?.near,
   (near, before) => {
-    if (near && !before) {
-      try {
-        navigator.vibrate?.([200, 100, 200])
-      } catch {
-        // No todos los navegadores lo permiten.
-      }
-    }
+    if (near && !before) alertNearby()
   }
 )
 

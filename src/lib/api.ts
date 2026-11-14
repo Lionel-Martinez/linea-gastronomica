@@ -416,7 +416,8 @@ export async function saveSettings(settings: Settings) {
       max_active_per_table: settings.max_active_per_table,
       max_pending_per_phone: settings.max_pending_per_phone,
       max_orders_per_phone_hour: settings.max_orders_per_phone_hour,
-      max_remote_per_hour: settings.max_remote_per_hour
+      max_remote_per_hour: settings.max_remote_per_hour,
+      near_radius_m: settings.near_radius_m
     })
     .eq('id', 1)
     .select('id')

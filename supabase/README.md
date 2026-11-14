@@ -47,6 +47,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 9. `update-10-compuerta-turnstile.sql` (después de la 09): prepara la **compuerta opcional** para Turnstile (anti-bots). No cambia nada hasta que se enciende. La guía completa está en `Guia-Turnstile.md` (carpeta Seguridad del vault); resumen: crear el widget en Cloudflare, cargar las variables `TURNSTILE_SECRET`, `ORDER_GATE`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `VITE_TURNSTILE_SITEKEY` en Pages, redeployar y recién ahí guardar `order_gate` en la tabla `app_secrets`.
 
+11. `update-11-radio-de-aviso.sql` (después de la 10): el encargado elige en **Ajustes** a qué distancia se avisa solo «el delivery está cerca» (150, 300 o 500 m; 300 por defecto).
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

@@ -78,3 +78,9 @@ export function onSignedOut(callback: () => void): () => void {
 
   return () => data.subscription.unsubscribe()
 }
+
+/** Id de la persona con sesión (para saber qué repartos son suyos). */
+export async function currentUserId(): Promise<string | null> {
+  if (!(await currentStaff())) return null
+  return cache?.uid ?? null
+}

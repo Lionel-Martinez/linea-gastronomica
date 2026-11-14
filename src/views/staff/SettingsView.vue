@@ -24,7 +24,8 @@ const form = reactive({
   max_active_per_table: 3,
   max_pending_per_phone: 5,
   max_orders_per_phone_hour: 3,
-  max_remote_per_hour: 20
+  max_remote_per_hour: 20,
+  near_radius_m: 300 as 150 | 300 | 500
 })
 const loading = ref(true)
 const saving = ref(false)
@@ -97,7 +98,8 @@ async function submit() {
       max_active_per_table: Math.trunc(Number(form.max_active_per_table)),
       max_pending_per_phone: Math.trunc(Number(form.max_pending_per_phone)),
       max_orders_per_phone_hour: Math.trunc(Number(form.max_orders_per_phone_hour)),
-      max_remote_per_hour: Math.trunc(Number(form.max_remote_per_hour))
+      max_remote_per_hour: Math.trunc(Number(form.max_remote_per_hour)),
+      near_radius_m: Number(form.near_radius_m) as 150 | 300 | 500
     })
 
     // Se vuelve a leer de la base: lo que se muestra es lo que realmente quedó guardado.
@@ -218,6 +220,19 @@ onMounted(async () => {
         </fieldset>
 
         <div v-if="form.pickup_enabled || form.delivery_enabled" class="space-y-4 pt-1">
+          <div v-if="form.delivery_enabled">
+            <label for="s-near" class="mb-1.5 block text-sm font-medium">
+              Avisar «el delivery está cerca» a una distancia de
+            </label>
+            <select id="s-near" v-model.number="form.near_radius_m" class="field">
+              <option :value="150">150 metros</option>
+              <option :value="300">300 metros</option>
+              <option :value="500">500 metros</option>
+            </select>
+            <p class="mt-1.5 text-sm text-ink-soft">
+              Se avisa solo, en línea recta hasta la dirección. Funciona si el cliente compartió su ubicación.
+            </p>
+          </div>
           <div>
             <label for="s-retention" class="mb-1.5 block text-sm font-medium">
               Borrar teléfono y dirección de los clientes después de
