@@ -1,3 +1,4 @@
+import { prepareImage } from './images'
 import { db } from './supabase'
 import { getTurnstileToken, turnstileEnabled } from './turnstile'
 import type {
@@ -21,6 +22,11 @@ import type {
 export function friendlyError(error: unknown): string {
   const message = (error as { message?: string } | null)?.message ?? ''
 
+  if (message.includes('not_image') || message.includes('image_unreadable'))
+    return 'No pude leer esa imagen. Probá con otra foto (JPG, PNG o WebP).'
+  if (message.includes('image_too_big')) return 'La foto es demasiado pesada. Probá con una más chica.'
+  if (message.toLowerCase().includes('row-level security') || message.includes('Unauthorized'))
+    return 'No tenés permiso para subir fotos. Solo el encargado puede hacerlo.'
   if (message.includes('invalid_table'))
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
@@ -388,6 +394,31 @@ export async function setProductAvailable(id: string, available: boolean) {
 
   if (error) throw error
   if (!data?.length) throw new Error('not_allowed')
+}
+
+const IMAGE_BUCKET = 'product-images'
+
+/** Sube la foto de un producto y devuelve su enlace público. */
+export async function uploadProductImage(file: File): Promise<string> {
+  const { blob, ext } = await prepareImage(file)
+  const path = `${crypto.randomUUID()}.${ext}`
+
+  const { error } = await db()
+    .storage.from(IMAGE_BUCKET)
+    .upload(path, blob, { contentType: blob.type, cacheControl: '31536000', upsert: false })
+
+  if (error) throw error
+  return db().storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+/** Borra una foto subida antes (si el enlace no es de nuestro depósito, no hace nada). */
+export async function removeProductImage(url: string) {
+  const marker = `/storage/v1/object/public/${IMAGE_BUCKET}/`
+  const index = url.indexOf(marker)
+  if (index === -1) return
+
+  const path = decodeURIComponent(url.slice(index + marker.length).split('?')[0])
+  await db().storage.from(IMAGE_BUCKET).remove([path])
 }
 
 export async function deleteProduct(id: string) {

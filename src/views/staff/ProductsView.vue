@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ImageOff, Pencil, Plus } from '@lucide/vue'
+import { ImageOff, ImagePlus, Pencil, Plus, Trash2 } from '@lucide/vue'
 import BottomSheet from '../../components/ui/BottomSheet.vue'
 import {
   deleteProduct,
   friendlyError,
   loadMenu,
+  removeProductImage,
   saveProduct,
+  uploadProductImage,
   setProductAvailable,
   type ProductInput
 } from '../../lib/api'
 import { businessName, formatPrice } from '../../lib/format'
+import { IMAGE_TYPES } from '../../lib/images'
 import type { Category, Product } from '../../lib/types'
 
 const categories = ref<Category[]>([])
@@ -21,6 +24,40 @@ const saving = ref(false)
 const formError = ref('')
 const sheetOpen = ref(false)
 const priceText = ref('')
+const uploading = ref(false)
+const originalImage = ref('') // la foto que tenía el producto al abrir el formulario
+const uploaded = ref<string[]>([]) // fotos subidas en esta edición (para limpiar las que no se usen)
+
+async function pickImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // permite elegir otra vez la misma foto
+  if (!file || uploading.value) return
+
+  uploading.value = true
+  formError.value = ''
+
+  try {
+    const url = await uploadProductImage(file)
+    uploaded.value.push(url)
+    form.image = url
+  } catch (e) {
+    formError.value = friendlyError(e)
+  } finally {
+    uploading.value = false
+  }
+}
+
+function clearImage() {
+  form.image = ''
+}
+
+/** Borra del depósito las fotos que quedaron sin usar (best effort: si falla, no pasa nada). */
+async function cleanImages(keep: string) {
+  const unused = [...uploaded.value, originalImage.value].filter((url) => url && url !== keep)
+  uploaded.value = []
+  await Promise.all(unused.map((url) => removeProductImage(url).catch(() => {})))
+}
 
 const form = reactive<ProductInput>(blank())
 
@@ -63,6 +100,8 @@ function openNew() {
   Object.assign(form, blank(), { category_id: categories.value[0]?.id ?? '' })
   priceText.value = ''
   formError.value = ''
+  originalImage.value = ''
+  uploaded.value = []
   sheetOpen.value = true
 }
 
@@ -79,6 +118,8 @@ function openEdit(product: Product) {
   })
   priceText.value = String(product.price)
   formError.value = ''
+  originalImage.value = product.image
+  uploaded.value = []
   sheetOpen.value = true
 }
 
@@ -123,12 +164,19 @@ async function submit() {
       image
     })
     sheetOpen.value = false
+    void cleanImages(image)
     await load()
   } catch (e) {
     formError.value = friendlyError(e)
   } finally {
     saving.value = false
   }
+}
+
+function closeSheet() {
+  if (saving.value || uploading.value) return
+  sheetOpen.value = false
+  void cleanImages(originalImage.value) // se descartan las fotos subidas que no se guardaron
 }
 
 async function toggle(product: Product) {
@@ -153,6 +201,7 @@ async function remove() {
   try {
     await deleteProduct(form.id)
     sheetOpen.value = false
+    void cleanImages('')
     await load()
   } catch (e) {
     formError.value = friendlyError(e)
@@ -252,7 +301,7 @@ onMounted(() => {
       </ul>
     </section>
 
-    <BottomSheet :open="sheetOpen" :title="form.id ? 'Editar producto' : 'Nuevo producto'" @close="sheetOpen = false">
+    <BottomSheet :open="sheetOpen" :title="form.id ? 'Editar producto' : 'Nuevo producto'" @close="closeSheet">
       <form class="space-y-4" @submit.prevent="submit">
         <div>
           <label for="p-name" class="mb-1.5 block text-sm font-medium">Nombre</label>
@@ -281,15 +330,46 @@ onMounted(() => {
         </div>
 
         <div>
-          <label for="p-img" class="mb-1.5 block text-sm font-medium">Imagen (enlace)</label>
-          <input
-            id="p-img"
-            v-model="form.image"
-            type="url"
-            inputmode="url"
-            placeholder="https://…"
-            class="field"
-          />
+          <span class="mb-1.5 block text-sm font-medium">Foto</span>
+
+          <div class="flex items-center gap-3">
+            <div class="grid size-20 shrink-0 place-items-center overflow-hidden bg-rule/60">
+              <img v-if="form.image" :src="form.image" alt="" class="size-full object-cover" />
+              <ImageOff v-else class="size-6 text-ink-soft" aria-hidden="true" />
+            </div>
+
+            <div class="flex min-w-0 flex-1 flex-wrap gap-2">
+              <label class="btn-line cursor-pointer" :class="uploading ? 'pointer-events-none opacity-60' : ''">
+                <ImagePlus class="size-4" aria-hidden="true" />
+                {{ uploading ? 'Subiendo…' : form.image ? 'Cambiar foto' : 'Elegir de la galería' }}
+                <input
+                  type="file"
+                  :accept="IMAGE_TYPES"
+                  class="sr-only"
+                  data-testid="p-file"
+                  :disabled="uploading"
+                  @change="pickImage"
+                />
+              </label>
+              <button v-if="form.image" type="button" class="btn-line" :disabled="uploading" @click="clearImage">
+                <Trash2 class="size-4" aria-hidden="true" />
+                Quitar
+              </button>
+            </div>
+          </div>
+
+          <details class="mt-2">
+            <summary class="cursor-pointer text-sm text-ink-soft">O pegar un enlace de una imagen</summary>
+            <input
+              id="p-img"
+              v-model="form.image"
+              type="url"
+              inputmode="url"
+              placeholder="https://…"
+              aria-label="Enlace de la imagen"
+              class="field mt-2"
+            />
+          </details>
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2">

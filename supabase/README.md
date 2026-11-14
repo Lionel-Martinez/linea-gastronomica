@@ -49,6 +49,8 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 11. `update-11-radio-de-aviso.sql` (después de la 10): el encargado elige en **Ajustes** a qué distancia se avisa solo «el delivery está cerca» (150, 300 o 500 m; 300 por defecto).
 
+12. `update-12-fotos-de-productos.sql` (después de la 11): crea el depósito público `product-images` en Supabase Storage para que el encargado suba fotos de productos desde la galería (se achican solas; máximo 1 MB). Solo el encargado puede subir o borrar; todos pueden ver las fotos de la carta.
+
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.

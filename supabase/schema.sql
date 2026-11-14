@@ -3263,3 +3263,37 @@ $function$;
 
 revoke all on function public.update_run_position(uuid, double precision, double precision, real) from public, anon;
 grant execute on function public.update_run_position(uuid, double precision, double precision, real) to authenticated;
+
+
+-- =====================================================================
+-- update-12 (ver supabase/update-12-fotos-de-productos.sql)
+-- =====================================================================
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+  set public = true,
+      file_size_limit = 1048576,
+      allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists product_images_select on storage.objects;
+drop policy if exists product_images_insert on storage.objects;
+drop policy if exists product_images_update on storage.objects;
+drop policy if exists product_images_delete on storage.objects;
+
+create policy product_images_select on storage.objects
+  for select to authenticated
+  using (bucket_id = 'product-images' and public.is_manager());
+
+create policy product_images_insert on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'product-images' and public.is_manager());
+
+create policy product_images_update on storage.objects
+  for update to authenticated
+  using (bucket_id = 'product-images' and public.is_manager())
+  with check (bucket_id = 'product-images' and public.is_manager());
+
+create policy product_images_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'product-images' and public.is_manager());
