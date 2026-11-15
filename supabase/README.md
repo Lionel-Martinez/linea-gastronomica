@@ -67,7 +67,7 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 **Ediciones (versión 2):** cada local usa una edición del sistema (Carta, Carta + Panel, Carta + Panel + Mesa, Pedidos y delivery, Completo). Después de `schema.sql` y `seed.sql`, ejecutar `supabase/editions/<edicion>.sql`, que fija el plan. La edición Carta no usa Supabase. Ver `supabase/editions/README.md` y `docs/ediciones/`.
 
-Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
+Mapa: sin configurar usa el mapa estándar de OpenStreetMap, que solo sirve para pruebas (su política lo desaconseja para apps comerciales). En producción usar Geoapify: variables de compilación `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION`. Ver `docs/Mapas-Geoapify.md`.
 
 La ubicación depende del celular: funciona con la pantalla encendida y la página abierta (en iPhone sobre todo). Si el celular del repartidor se bloquea, el mapa del cliente deja de actualizarse.
 
