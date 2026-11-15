@@ -2,6 +2,7 @@ import { reactive } from 'vue'
 import { loadSettings } from './api'
 import { currentRole } from './auth'
 import { EDITION, EDITION_PLAN } from '../edition'
+import { effectivePlan } from './plans'
 import type { Plan, Role } from './types'
 
 // Estado del panel que comparten el menú de navegación y las pantallas:
@@ -23,7 +24,7 @@ export async function refreshPanel() {
 
   try {
     const settings = await loadSettings()
-    panel.plan = settings.plan ?? EDITION_PLAN[EDITION]
+    panel.plan = effectivePlan(settings.plan)
     panel.ordering = settings.ordering_enabled
     panel.pickup = settings.pickup_enabled
     panel.delivery = settings.delivery_enabled

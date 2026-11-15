@@ -6,7 +6,7 @@ import { businessName } from '../../lib/format'
 import BlockedPhones from '../../components/staff/BlockedPhones.vue'
 import ZonesEditor from '../../components/staff/ZonesEditor.vue'
 import { refreshPanel } from '../../lib/panel'
-import { hasRemoteOrdering, hasTableOrdering, PLAN_LABEL, PLAN_SUMMARY } from '../../lib/plans'
+import { effectivePlan, hasRemoteOrdering, hasTableOrdering, planMismatch, PLAN_LABEL, PLAN_SUMMARY } from '../../lib/plans'
 import { PAYMENT_LABEL, PAYMENT_METHODS, type PaymentMethod, type Plan } from '../../lib/types'
 
 const form = reactive({
@@ -29,6 +29,12 @@ const form = reactive({
   near_radius_m: 300 as 150 | 300 | 500,
   plan: 'full' as Plan
 })
+const dbMismatch = ref(false)
+/** Lo que se muestra sigue a la edición publicada, aunque la base tenga otro plan. */
+function applyEdition(dbPlan: Plan) {
+  dbMismatch.value = planMismatch(dbPlan)
+  form.plan = effectivePlan(dbPlan)
+}
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -116,6 +122,7 @@ async function submit() {
     }
 
     Object.assign(form, fresh, { payment_methods: [...fresh.payment_methods] })
+    applyEdition(fresh.plan)
     savedTables.value = fresh.table_count
     saved.value = true
     void refreshPanel()
@@ -132,6 +139,7 @@ onMounted(async () => {
   try {
     const data = await loadSettings()
     Object.assign(form, data, { payment_methods: [...data.payment_methods] })
+    applyEdition(data.plan)
   } catch (e) {
     error.value = friendlyError(e)
   } finally {
@@ -154,6 +162,9 @@ onMounted(async () => {
         <p class="font-display text-xl font-semibold">{{ PLAN_LABEL[form.plan] }}</p>
         <p class="mt-1 text-sm text-ink-soft">{{ PLAN_SUMMARY[form.plan] }}</p>
         <p class="mt-2 text-sm text-ink-soft">Para cambiar de plan, consultá con LM Studio.</p>
+        <p v-if="dbMismatch" class="mt-2 text-sm font-medium text-accent-deep" data-plan-mismatch>
+          La base de datos todavía tiene otro plan. Avisá a LM Studio para que lo deje igual a esta edición.
+        </p>
       </div>
 
       <fieldset v-if="hasTableOrdering(form.plan)" class="space-y-2">

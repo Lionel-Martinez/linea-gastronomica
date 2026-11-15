@@ -1,5 +1,5 @@
 import type { Plan, Role } from './types'
-import { EDITION_STAFF_ROUTES } from '../edition'
+import { EDITION, EDITION_PLAN, EDITION_STAFF_ROUTES } from '../edition'
 import { ROLE_ROUTES } from './roles'
 
 // Combos que vende LM Studio. El plan lo cambia solo LM Studio (SQL Editor); el local no puede.
@@ -42,3 +42,15 @@ export const hasTableOrdering = (plan: Plan) => plan === 'table' || plan === 'fu
 export const hasRemoteOrdering = (plan: Plan) => plan === 'orders' || plan === 'full'
 /** En «Carta + Panel» el local solo cambia precio y disponibilidad. */
 export const priceOnly = (plan: Plan) => plan === 'menu_panel'
+
+/**
+ * Plan que se aplica en pantalla. Cada edición ya trae su plan: si la base tiene otro
+ * (por ejemplo un Supabase de pruebas en «Completo»), manda la edición. Solo la edición
+ * «Completo» sigue el plan de la base, porque puede estar limitada por LM Studio.
+ */
+export const effectivePlan = (dbPlan: Plan | null | undefined): Plan =>
+  EDITION === 'completo' ? (dbPlan ?? EDITION_PLAN[EDITION]) : EDITION_PLAN[EDITION]
+
+/** La base de datos tiene un plan distinto al de la edición publicada (hay que correr supabase/editions/<edicion>.sql). */
+export const planMismatch = (dbPlan: Plan | null | undefined) =>
+  EDITION !== 'completo' && !!dbPlan && dbPlan !== EDITION_PLAN[EDITION]
