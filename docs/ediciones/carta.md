@@ -31,8 +31,8 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `carta.md`
 ## 4. Instalación paso a paso
 
 1. **Datos del local.** Editar `src/data/menu.json`: nombre, descripción, dirección, horarios, WiFi, WhatsApp y los productos de ejemplo (en esta edición **son** los productos que ve el cliente).
-2. **Publicar en Cloudflare Pages.** Conectar el repositorio. Build command: `npm run build:carta` · Build output directory: `dist-carta`. Variables de entorno: **ninguna**.
-3. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare Pages.
+2. **Publicar en Cloudflare.** Conectar el repositorio. Comando de compilación: `npm run build:carta` · Comando de implementación: `npx wrangler deploy` (usa `wrangler.jsonc`, que publica `dist`; el nombre del proyecto en Cloudflare debe coincidir con el `name` del archivo, o usar `npx wrangler deploy --name <proyecto>`). Variables de entorno: **ninguna**.
+3. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare.
 4. **QR.** Abrir `https://<dominio>/qr`, elegir estilo y colores, descargar el SVG/PNG y entregárselo al local.
 
 ## 5. Pruebas de aceptación (antes de entregar)

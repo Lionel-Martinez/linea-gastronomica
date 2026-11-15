@@ -22,7 +22,7 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `panel.md`
 - Ajustes, reparto ni roles de cocina/mozo/repartidor.
 
 ## 3. Qué necesita
-- Un proyecto de Supabase (plan gratuito alcanza para empezar) y Cloudflare Pages.
+- Un proyecto de Supabase (plan gratuito alcanza para empezar) y Cloudflare.
 
 - Pestañas del panel: Productos · Códigos QR
 - Roles que se usan: Encargado (`manager`)
@@ -33,8 +33,8 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `panel.md`
 2. **Base de datos.** En el SQL Editor, ejecutar `supabase/schema.sql` completo (ya trae todas las actualizaciones) y después `supabase/editions/panel.sql` (fija el plan del local).
 3. **Usuarios del personal.** Crearlos en Authentication → Users (con «Auto Confirm User») y darles su rol con SQL (ejemplos en `supabase/README.md`, paso 7): `insert into public.staff (user_id, role) values ('<id>', 'manager');`. El primero siempre es `manager` (encargado).
 4. **Datos del local.** Editar `src/data/menu.json`: nombre, descripción, dirección, horarios, WiFi, WhatsApp y los productos de ejemplo (se reemplazan por los que cargue el local en el panel).
-5. **Publicar en Cloudflare Pages.** Conectar el repositorio. Build command: `npm run build:panel` · Build output directory: `dist-panel`. Variables de entorno (Settings → Variables and Secrets): `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
-6. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare Pages.
+5. **Publicar en Cloudflare.** Conectar el repositorio. Comando de compilación: `npm run build:panel` · Comando de implementación: `npx wrangler deploy` (usa `wrangler.jsonc`, que publica `dist`; el nombre del proyecto en Cloudflare debe coincidir con el `name` del archivo, o usar `npx wrangler deploy --name <proyecto>`). Variables de entorno (Settings → Variables and Secrets): `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
+6. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare.
 7. **QR.** Entrar al panel → **Códigos QR**, elegir estilo y descargar.
 
 ## 5. Pruebas de aceptación (antes de entregar)

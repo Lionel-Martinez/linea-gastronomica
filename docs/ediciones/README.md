@@ -24,7 +24,7 @@ Un solo código, cinco ediciones. Cada edición se compila aparte y publica **so
 | Página de QR | `/qr` | panel | panel | — | panel |
 | Plan en la base | — | `menu_panel` | `table` | `orders` | `full` |
 | Comando | `build:carta` | `build:panel` | `build:mesa` | `build:delivery` | `build:completo` |
-| Carpeta de salida | `dist-carta` | `dist-panel` | `dist-mesa` | `dist-delivery` | `dist-completo` |
+| Carpeta de salida | `dist` | `dist` | `dist` | `dist` | `dist` |
 
 Guías: [[carta]] · [[panel]] · [[mesa]] · [[delivery]] · [[completo]]
 
@@ -42,11 +42,11 @@ Guías: [[carta]] · [[panel]] · [[mesa]] · [[delivery]] · [[completo]]
 
 ```bash
 npm install
-npm run build:carta      # → dist-carta
-npm run build:panel      # → dist-panel
-npm run build:mesa       # → dist-mesa
-npm run build:delivery   # → dist-delivery
-npm run build:completo   # → dist-completo
+npm run build:carta      # → dist
+npm run build:panel      # → dist
+npm run build:mesa       # → dist
+npm run build:delivery   # → dist
+npm run build:completo   # → dist
 npm run build:all        # las cinco
 npm run dev:panel        # desarrollo de una edición (dev:carta, dev:mesa, ...)
 ```

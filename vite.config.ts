@@ -88,6 +88,6 @@ export default defineConfig(({ mode }) => {
       __HAS_REMOTE_ORDERING__: String(edition === 'delivery' || edition === 'completo'),
       __HAS_QR_PAGE__: String(edition !== 'delivery')
     },
-    build: { outDir: `dist-${edition}` }
+    build: { outDir: 'dist' }
   }
 })

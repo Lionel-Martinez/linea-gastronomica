@@ -24,7 +24,7 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `mesa.md`
 - Rol de repartidor.
 
 ## 3. Qué necesita
-- Un proyecto de Supabase y Cloudflare Pages.
+- Un proyecto de Supabase y Cloudflare.
 - Opcional: Cloudflare Turnstile (anti-bots) — ver `supabase/README.md`, update-10.
 
 - Pestañas del panel: Pedidos · Productos · Ajustes · Códigos QR
@@ -36,9 +36,9 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `mesa.md`
 2. **Base de datos.** En el SQL Editor, ejecutar `supabase/schema.sql` completo (ya trae todas las actualizaciones) y después `supabase/editions/mesa.sql` (fija el plan del local).
 3. **Usuarios del personal.** Crearlos en Authentication → Users (con «Auto Confirm User») y darles su rol con SQL (ejemplos en `supabase/README.md`, paso 7): `insert into public.staff (user_id, role) values ('<id>', 'manager');`. El primero siempre es `manager` (encargado).
 4. **Datos del local.** Editar `src/data/menu.json`: nombre, descripción, dirección, horarios, WiFi, WhatsApp y los productos de ejemplo (se reemplazan por los que cargue el local en el panel).
-5. **Publicar en Cloudflare Pages.** Conectar el repositorio. Build command: `npm run build:mesa` · Build output directory: `dist-mesa`. Variables de entorno (Settings → Variables and Secrets): `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
-6. **Opcional, anti-bots (Turnstile).** Seguir `supabase/README.md` (update-10) y cargar las variables de la Function de Pedidos en Cloudflare Pages.
-7. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare Pages.
+5. **Publicar en Cloudflare.** Conectar el repositorio. Comando de compilación: `npm run build:mesa` · Comando de implementación: `npx wrangler deploy` (usa `wrangler.jsonc`, que publica `dist`; el nombre del proyecto en Cloudflare debe coincidir con el `name` del archivo, o usar `npx wrangler deploy --name <proyecto>`). Variables de entorno (Settings → Variables and Secrets): `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
+6. **Opcional, anti-bots (Turnstile).** Seguir `supabase/README.md` (update-10) y cargar las variables de la Function de Pedidos en Cloudflare.
+7. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare.
 8. **Ajustes y QR.** Entrar al panel → **Ajustes** (formas de pago, alias/CBU, WhatsApp, límites) y después **Códigos QR** para imprimir los QR de la carta y de cada mesa.
 
 ## 5. Pruebas de aceptación (antes de entregar)
