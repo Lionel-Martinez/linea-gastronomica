@@ -5,8 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "vue-tsc -b && vite build --mode completo --outDir dist",
+    "preview": "vite preview",
+    "build:carta": "vue-tsc -b && vite build --mode carta",
+    "build:panel": "vue-tsc -b && vite build --mode panel",
+    "build:mesa": "vue-tsc -b && vite build --mode mesa",
+    "build:delivery": "vue-tsc -b && vite build --mode delivery",
+    "build:completo": "vue-tsc -b && vite build --mode completo",
+    "build:all": "vue-tsc -b && vite build --mode carta && vite build --mode panel && vite build --mode mesa && vite build --mode delivery && vite build --mode completo",
+    "dev:carta": "vite --mode carta",
+    "dev:panel": "vite --mode panel",
+    "dev:mesa": "vite --mode mesa",
+    "dev:delivery": "vite --mode delivery",
+    "dev:completo": "vite --mode completo"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

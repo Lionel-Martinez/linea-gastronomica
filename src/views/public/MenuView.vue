@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ArrowUp,
   ArrowUpRight,
@@ -18,10 +18,8 @@ import {
 import menuData from '../../data/menu.json'
 import { useDialogFocus } from '../../composables/useDialogFocus'
 import { RouterLink, useRouter } from 'vue-router'
-import TrackCodeForm from '../../components/order/TrackCodeForm.vue'
-import { loadMenu } from '../../lib/api'
+import { HAS_BACKEND, HAS_REMOTE_ORDERING } from '../../edition'
 import { formatPrice } from '../../lib/format'
-import { isSupabaseConfigured } from '../../lib/supabase'
 import type { Settings } from '../../lib/types'
 
 interface MenuCategory {
@@ -89,7 +87,8 @@ const modalities = computed(() =>
       if (modality.id === 'delivery') return { ...modality, enabled: live.delivery_enabled }
       return modality
     })
-    .filter((modality) => modality.enabled)
+    // Retirar y delivery solo existen en las ediciones con pedidos a distancia.
+    .filter((modality) => modality.enabled && (HAS_REMOTE_ORDERING || !['pickup', 'delivery'].includes(modality.id)))
 )
 
 // Pedidos desde casa (retiro o delivery) activados por el local.
@@ -122,14 +121,28 @@ watch(navCategories, (list) => {
 
 const router = useRouter()
 
-async function loadLiveMenu() {
-  if (!isSupabaseConfigured) return
+// El seguimiento de pedidos solo existe en las ediciones con pedidos a distancia.
+const TrackCodeForm = HAS_REMOTE_ORDERING
+  ? defineAsyncComponent(() => import('../../components/order/TrackCodeForm.vue'))
+  : null
 
+// La edición Carta es un sitio estático: muestra siempre los datos del archivo menu.json.
+async function loadLiveMenu() {
+  if (HAS_BACKEND) await loadFromServer()
+}
+
+async function loadFromServer() {
   try {
+    const [{ isSupabaseConfigured }, { loadMenu }] = await Promise.all([
+      import('../../lib/supabase'),
+      import('../../lib/api')
+    ])
+    if (!isSupabaseConfigured) return
+
     const live = await loadMenu()
     liveSettings.value = live.settings
     // Plan «Pedidos y delivery»: no hay carta pública, se entra directo a hacer el pedido.
-    if (live.settings.plan === 'orders') void router.replace({ name: 'remote-order' })
+    if (live.settings.plan === 'orders' && router.hasRoute('remote-order')) void router.replace({ name: 'remote-order' })
     if (!live.products.length) return
 
     allCategories.value = [
@@ -495,7 +508,7 @@ onUnmounted(() => {
         </li>
       </ul>
 
-      <RouterLink v-if="remoteOrdering" :to="{ name: 'remote-order' }" class="btn-solid mt-5">
+      <RouterLink v-if="HAS_REMOTE_ORDERING && remoteOrdering" :to="{ name: 'remote-order' }" class="btn-solid mt-5">
         Pedir desde casa
       </RouterLink>
     </header>
@@ -537,13 +550,13 @@ onUnmounted(() => {
     </div>
 
     <!-- Seguimiento de pedidos a distancia -->
-    <section v-if="remoteOrdering" class="wrap pt-6" aria-labelledby="track-title">
+    <section v-if="TrackCodeForm && remoteOrdering" class="wrap pt-6" aria-labelledby="track-title">
       <h2 id="track-title" class="font-display text-xl font-semibold leading-none">Seguí tu pedido</h2>
       <p class="mb-3 mt-1.5 text-sm text-ink-soft">
         Escribí el código que recibiste al pedir y mirá en qué está.
       </p>
       <div class="max-w-md">
-        <TrackCodeForm id="menu-track-code" />
+        <component :is="TrackCodeForm" id="menu-track-code" />
       </div>
     </section>
 

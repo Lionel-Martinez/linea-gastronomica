@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Download, Printer, RefreshCw } from '@lucide/vue'
-import { loadSettings } from '../../lib/api'
+import { HAS_TABLE_ORDERING } from '../../edition'
 import { businessName } from '../../lib/format'
 import {
   DEFAULT_QR_STYLE,
@@ -19,7 +19,7 @@ const STYLE_KEY = 'lg:qr-style'
 
 const baseUrl = ref(window.location.origin)
 const tableCount = ref(0)
-const ordering = ref(true)
+const ordering = ref(HAS_TABLE_ORDERING)
 const error = ref('')
 
 // El estilo se recuerda en este navegador (se elige una vez y queda).
@@ -108,8 +108,12 @@ async function downloadPng(code: { title: string; svg: string }) {
 
 async function reload() {
   error.value = ''
+  if (HAS_TABLE_ORDERING) await loadTables() // sin pedidos por mesa no hay QR de mesas: solo el de la carta
+}
 
+async function loadTables() {
   try {
+    const { loadSettings } = await import('../../lib/api')
     const settings = await loadSettings()
     tableCount.value = settings.table_count
     ordering.value = settings.ordering_enabled
@@ -129,7 +133,7 @@ onMounted(() => {
     <div class="flex flex-wrap items-center justify-between gap-3 print:hidden">
       <h1 class="font-display text-[2rem] font-semibold leading-none tracking-tight">Códigos QR</h1>
       <div class="flex gap-2">
-        <button type="button" class="btn-line btn-small" @click="reload">
+        <button v-if="HAS_TABLE_ORDERING" type="button" class="btn-line btn-small" @click="reload">
           <RefreshCw class="size-4" aria-hidden="true" />
           Actualizar
         </button>
@@ -147,7 +151,11 @@ onMounted(() => {
         Este local tiene {{ tableCount }} mesas. Si cambiás la cantidad en Ajustes, volvé acá y se actualiza.
       </p>
       <p class="mt-1.5 text-sm text-ink-soft">
-        El QR de la carta abre esta dirección y cada mesa, esta dirección + /mesa/N. Usá el dominio definitivo antes de imprimir.
+        <template v-if="HAS_TABLE_ORDERING">
+          El QR de la carta abre esta dirección y cada mesa, esta dirección + /mesa/N.
+        </template>
+        <template v-else>El QR de la carta abre esta dirección.</template>
+        Usá el dominio definitivo antes de imprimir.
       </p>
     </div>
 

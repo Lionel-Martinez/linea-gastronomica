@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { loadSettings } from './api'
 import { currentRole } from './auth'
+import { EDITION, EDITION_PLAN } from '../edition'
 import type { Plan, Role } from './types'
 
 // Estado del panel que comparten el menú de navegación y las pantallas:
@@ -13,7 +14,7 @@ export const panel = reactive({
   remote: false, // retiro o delivery
   manager: false,
   role: null as Role | null,
-  plan: 'full' as Plan
+  plan: EDITION_PLAN[EDITION] as Plan
 })
 
 export async function refreshPanel() {
@@ -22,7 +23,7 @@ export async function refreshPanel() {
 
   try {
     const settings = await loadSettings()
-    panel.plan = settings.plan ?? 'full'
+    panel.plan = settings.plan ?? EDITION_PLAN[EDITION]
     panel.ordering = settings.ordering_enabled
     panel.pickup = settings.pickup_enabled
     panel.delivery = settings.delivery_enabled

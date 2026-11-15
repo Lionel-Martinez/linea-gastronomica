@@ -4,15 +4,15 @@
 2. **SQL Editor** → pegar y ejecutar `schema.sql`, y después `seed.sql` (datos de ejemplo).
 3. **Authentication → Sign In / Providers → Email**: desactivar "Allow new users to sign up" (solo el personal entra, y lo crea el dueño).
 4. **Authentication → Users → Add user**: crear un usuario por mozo/mostrador (email + contraseña, con "Auto Confirm User").
-5. Autorizarlos como personal, en el SQL Editor. `is_manager = true` es para las personas **encargadas** del local (solo ellas ven y cambian los Ajustes: interruptor de pedidos, formas de pago, mesas, WhatsApp); los mozos van con `false`:
+5. Autorizarlos como personal, en el SQL Editor, con su **rol** (`manager` = encargado, `counter` = mostrador, `waiter` = mozo, `kitchen` = cocina, `courier` = repartidor). Solo el encargado ve y cambia los Ajustes:
    ```sql
-   insert into public.staff (user_id, is_manager)
-   select id, true  from auth.users where email in ('encargado@ejemplo.com');
+   insert into public.staff (user_id, role)
+   select id, 'manager' from auth.users where email in ('encargado@ejemplo.com');
 
-   insert into public.staff (user_id, is_manager)
-   select id, false from auth.users where email in ('mozo1@ejemplo.com', 'mostrador@ejemplo.com');
+   insert into public.staff (user_id, role)
+   select id, 'waiter'  from auth.users where email in ('mozo1@ejemplo.com');
    ```
-   Para convertir a alguien en encargado después: `update public.staff set is_manager = true where user_id = (select id from auth.users where email = 'x@ejemplo.com');`
+   Para cambiar el rol después: `update public.staff set role = 'manager' where user_id = (select id from auth.users where email = 'x@ejemplo.com');`
 6. **Project Settings → API**: copiar la URL y la clave `anon`/`publishable`. Copiar `.env.example` a `.env` y completarlo.
    - En Cloudflare Pages: Settings → Variables and Secrets → agregar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, y volver a desplegar (se leen al compilar).
    - **Nunca** usar la clave `service_role` en el frontend.
@@ -56,11 +56,16 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
     ```sql
     update public.settings set plan = 'menu';        -- Carta
     update public.settings set plan = 'menu_panel';  -- Carta + Panel (el local solo cambia precios y «disponible»)
+    update public.settings set plan = 'table';       -- Carta + Panel + Mesa (pedir desde el QR de cada mesa)
     update public.settings set plan = 'orders';      -- Pedidos y delivery
     update public.settings set plan = 'full';        -- Completo
     ```
 
     Los locales que ya existen quedan en `full`. La base apaga las formas de pedido que el plan no incluye y limita lo que el local puede editar; el panel muestra solo las pantallas del plan.
+
+14. `update-14-plan-mesa.sql` (después de la 13): agrega el plan `table` (Carta + Panel + Mesa).
+
+**Ediciones (versión 2):** cada local usa una edición del sistema (Carta, Carta + Panel, Carta + Panel + Mesa, Pedidos y delivery, Completo). Después de `schema.sql` y `seed.sql`, ejecutar `supabase/editions/<edicion>.sql`, que fija el plan. La edición Carta no usa Supabase. Ver `supabase/editions/README.md` y `docs/ediciones/`.
 
 Mapa: por defecto usa el mapa estándar de OpenStreetMap, que tiene condiciones de uso y no está pensado para mucho tráfico. Para un local con muchos pedidos conviene un proveedor de mapas con plan propio: se configura con `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION` (ver `.env.example`).
 

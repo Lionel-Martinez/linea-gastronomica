@@ -111,7 +111,7 @@ export interface OrderItem {
 
 /** Pedido tal como lo ve el personal (con sus líneas). */
 /** Combo contratado por el local (lo cambia solo LM Studio). */
-export type Plan = 'menu' | 'menu_panel' | 'orders' | 'full'
+export type Plan = 'menu' | 'menu_panel' | 'table' | 'orders' | 'full'
 
 /** Rol de la persona del personal; el encargado (manager) puede todo. */
 export type Role = 'manager' | 'counter' | 'waiter' | 'kitchen' | 'courier'
