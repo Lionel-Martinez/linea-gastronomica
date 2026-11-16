@@ -29,8 +29,8 @@ El local la devuelve como archivo (Google Sheets: *Archivo → Descargar → CSV
 Desde la carpeta del repo principal:
 
 - **Ediciones con Supabase** (Panel, Mesa, Pedidos y delivery, Completo):
-  `python3 scripts/importar_productos.py productos.csv --sql productos-local.sql`
-  y pegar `productos-local.sql` en el **SQL Editor** del Supabase del local. Se puede ejecutar más de una vez: no duplica productos.
+  `python3 scripts/importar_productos.py productos.csv --sql productos-local.sql --local <nombre-corto>`
+  y pegar `productos-local.sql` en el **SQL Editor** del Supabase compartido. Carga solo en el local indicado (el archivo empieza con `select public.use_tenant('<nombre-corto>')`). Se puede ejecutar más de una vez: no duplica productos.
 - **Edición Carta**:
   `python3 scripts/importar_productos.py productos.csv --menu src/data/menu.json`
   dentro del proyecto de la edición Carta de ese local, y volver a publicar. Reemplaza los productos y categorías; los datos del local (nombre, horarios, WiFi) no se tocan.

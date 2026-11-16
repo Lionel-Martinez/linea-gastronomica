@@ -55,14 +55,21 @@ npm run dev:panel        # desarrollo de una edición (dev:carta, dev:mesa, ...)
 
 ## Un sistema por local
 
-Cada local tiene su propio proyecto de Supabase y su propio proyecto de Cloudflare Pages, con su comando de compilación (ver la guía de su edición). La edición **Carta** no usa Supabase.
+Todos los locales comparten **un solo proyecto de Supabase** (cada local es un «tenant» con sus datos separados; un encargado pertenece a un solo local, y su sitio lo identifica con `VITE_TENANT`). Cada local tiene su propio proyecto de Cloudflare Pages, con su comando de compilación (ver la guía de su edición). La edición **Carta** no usa Supabase.
 
 ## Decisiones tomadas (2026-11-15)
 - Un solo repositorio con cinco ediciones (no cinco copias del proyecto).
 - La edición Carta es un sitio estático sin Supabase; los productos viven en `src/data/menu.json`.
-- Mismo `schema.sql` para todas las ediciones con Supabase; cada edición fija su plan con `supabase/editions/<edición>.sql`.
+- Mismo `schema.sql` para todas las ediciones con Supabase; el alta de cada local y su plan se hacen con `supabase/editions/<edición>.sql`.
 - «Completo» = mesa + retiro + delivery.
 - El plan lo cambia solo LM Studio (SQL Editor); el local lo ve en Ajustes pero no lo cambia.
+
+## Decisión (2026-11-16): un solo Supabase para todos los locales
+- Motivo: bajar el costo fijo (un solo plan Pro en vez de uno por local).
+- Un encargado/personal pertenece a **un solo** local. Cada sitio sabe su local por `VITE_TENANT` (variable de compilación).
+- Lo que ya existía pasó a ser el local `demo`.
+- Las tablas conservan `tenant_id`: si un local crece, se puede copiar a un proyecto propio.
+- Riesgos: un error de configuración en un solo proyecto afecta a todos (por eso la base rechaza `update` masivos de ajustes); la compuerta Turnstile (`order_gate`) es una sola para todos los locales.
 
 ## Límite conocido
 El sitio de cada edición no lleva las pantallas que no usa. Dentro de las pantallas compartidas (pedido, panel) queda algo de código que esa edición nunca ejecuta; no se ve ni se puede abrir.

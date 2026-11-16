@@ -1,22 +1,50 @@
 # Configuración de Supabase (Etapa 2)
 
-1. Crear un proyecto en https://supabase.com (plan gratuito alcanza).
-2. **SQL Editor** → pegar y ejecutar `schema.sql`, y después `seed.sql` (datos de ejemplo).
-3. **Authentication → Sign In / Providers → Email**: desactivar "Allow new users to sign up" (solo el personal entra, y lo crea el dueño).
-4. **Authentication → Users → Add user**: crear un usuario por mozo/mostrador (email + contraseña, con "Auto Confirm User").
-5. Autorizarlos como personal, en el SQL Editor, con su **rol** (`manager` = encargado, `counter` = mostrador, `waiter` = mozo, `kitchen` = cocina, `courier` = repartidor). Solo el encargado ve y cambia los Ajustes:
-   ```sql
-   insert into public.staff (user_id, role)
-   select id, 'manager' from auth.users where email in ('encargado@ejemplo.com');
+**Un solo proyecto de Supabase para todos los locales.** Cada local es un «tenant» (nombre corto, ej. `cafe-del-centro`): sus datos
+están separados y ninguno ve lo del otro. Un encargado pertenece a **un solo** local. Cada sitio publicado sabe a qué local
+pertenece por la variable de compilación `VITE_TENANT`. Plan **Pro** recomendado (backups y sin pausa por inactividad).
 
-   insert into public.staff (user_id, role)
-   select id, 'waiter'  from auth.users where email in ('mozo1@ejemplo.com');
+## Proyecto nuevo (una sola vez)
+
+1. Crear el proyecto en https://supabase.com.
+2. **SQL Editor** → pegar y ejecutar `schema.sql`. (`seed.sql` es opcional: crea el local de pruebas `demo` con productos de ejemplo.)
+3. **Authentication → Sign In / Providers → Email**: desactivar "Allow new users to sign up" (solo el personal entra, y lo crea LM Studio).
+4. **Project Settings → API**: copiar la URL y la clave `anon`/`publishable`. **Nunca** usar la clave `service_role` en el frontend.
+
+## Alta de cada local nuevo (no se crea otro proyecto)
+
+1. **SQL Editor**: ejecutar `editions/<edicion>.sql` cambiando el nombre corto y el nombre (o, a mano:
+   `select public.create_tenant('cafe-del-centro', 'Café del Centro', 'table');` con plan `menu_panel`, `table`, `orders` o `full`).
+2. **Authentication → Users → Add user** (con "Auto Confirm User"): el encargado y, si el plan lo pide, mozo, cocina y repartidor.
+3. Darles rol y local (`manager` = encargado, `counter` = mostrador, `waiter` = mozo, `kitchen` = cocina, `courier` = repartidor):
+   ```sql
+   select public.add_staff('encargado@correo.com', 'cafe-del-centro', 'manager');
+   select public.add_staff('mozo1@correo.com',     'cafe-del-centro', 'waiter');
    ```
-   Para cambiar el rol después: `update public.staff set role = 'manager' where user_id = (select id from auth.users where email = 'x@ejemplo.com');`
-6. **Project Settings → API**: copiar la URL y la clave `anon`/`publishable`. Copiar `.env.example` a `.env` y completarlo.
-   - En Cloudflare Pages: Settings → Variables and Secrets → agregar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, y volver a desplegar (se leen al compilar).
-   - **Nunca** usar la clave `service_role` en el frontend.
-7. Entrar a `/staff/login`, ajustar mesas y alias/CBU en **Ajustes**, e imprimir los QR desde **Códigos QR**.
+   Para cambiar el rol o el local de alguien se vuelve a llamar a `add_staff` con los nuevos datos.
+4. Compilar y publicar el sitio del local con tres variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_TENANT=cafe-del-centro`
+   (en Cloudflare: Settings → Variables and Secrets; se leen al compilar, hay que volver a desplegar).
+   Si el local usa la compuerta Turnstile, la Function además necesita `TENANT` con el mismo nombre corto.
+5. Entrar a `/staff/login`, ajustar mesas y alias/CBU en **Ajustes**, e imprimir los QR desde **Códigos QR**.
+
+## Operación (solo LM Studio, desde el SQL Editor)
+
+```sql
+select public.set_tenant_plan('cafe-del-centro', 'full');   -- cambiar de plan
+select public.suspend_tenant('cafe-del-centro', true);        -- suspender por falta de pago (datos intactos)
+select public.suspend_tenant('cafe-del-centro', false);       -- reactivar
+select slug, name from public.tenants order by slug;          -- lista de locales
+```
+
+Estas funciones (`create_tenant`, `set_tenant_plan`, `suspend_tenant`, `add_staff`, `use_tenant`) solo las puede ejecutar el SQL Editor:
+el público y el personal de los locales no pueden. **Cuidado:** nunca hacer `update public.settings set ...` sin `where tenant_id = ...`;
+la base rechaza actualizar varias filas de ajustes a la vez, justamente para evitar tocar todos los locales por error.
+
+Para cargar datos de un local desde el SQL Editor (productos, por ejemplo) primero se indica el local en esa misma ejecución:
+`select public.use_tenant('cafe-del-centro');`.
+
+Si más adelante un local crece y conviene darle su propio proyecto, se copian sus datos (todas las tablas tienen `tenant_id`) a un
+proyecto nuevo con el mismo `schema.sql`.
 
 Rutas: `/` carta (Etapa 1) · `/mesa/N` pedir · `/pedido/:id` seguimiento · `/staff` panel.
 
@@ -65,16 +93,13 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 14. `update-14-plan-mesa.sql` (después de la 13): agrega el plan `table` (Carta + Panel + Mesa).
 
-15. `update-15-suspension.sql` (después de la 14): **suspensión por falta de pago**. Solo LM Studio la cambia, desde el SQL Editor (el local no puede):
-
-    ```sql
-    update public.settings set suspended = true;    -- cierra la vista (datos intactos)
-    update public.settings set suspended = false;   -- la devuelve al pagar
-    ```
+15. `update-15-suspension.sql` (después de la 14): **suspensión por falta de pago**. Solo LM Studio la cambia, desde el SQL Editor (el local no puede). Con varios locales se usa `select public.suspend_tenant('<local>', true);` (ver «Operación»).
 
     Suspendido: la carta, los pedidos y el panel muestran «Servicio suspendido» y no entran pedidos nuevos. En la edición Carta (sin base) se suspende quitando el dominio en Cloudflare.
 
-**Ediciones (versión 2):** cada local usa una edición del sistema (Carta, Carta + Panel, Carta + Panel + Mesa, Pedidos y delivery, Completo). Después de `schema.sql` y `seed.sql`, ejecutar `supabase/editions/<edicion>.sql`, que fija el plan. La edición Carta no usa Supabase. Ver `supabase/editions/README.md` y `docs/ediciones/`.
+16. `update-16-multilocal.sql` (después de la 15): **un solo Supabase para varios locales**. Todo lo que ya había queda como el local `demo`; a los usuarios existentes se les asigna ese local. Después hay que publicar el front-end nuevo con `VITE_TENANT=demo` (el viejo no manda el local y dejaría de ver datos). Las fotos que ya estaban subidas (sin carpeta del local) siguen mostrándose, pero para borrarlas o reemplazarlas hay que volver a subirlas. El encargado sube las nuevas fotos a la carpeta de su local.
+
+**Ediciones (versión 2):** cada local usa una edición del sistema (Carta, Carta + Panel, Carta + Panel + Mesa, Pedidos y delivery, Completo). Ver `supabase/editions/<edicion>.sql` (alta del local con su plan). La edición Carta no usa Supabase. Ver `supabase/editions/README.md` y `docs/ediciones/`.
 
 Mapa: sin configurar usa el mapa estándar de OpenStreetMap, que solo sirve para pruebas (su política lo desaconseja para apps comerciales). En producción usar Geoapify: variables de compilación `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION`. Ver `docs/Mapas-Geoapify.md`.
 
@@ -82,4 +107,4 @@ La ubicación depende del celular: funciona con la pantalla encendida y la pági
 
 Privacidad: teléfono, dirección y referencia se borran solos pasado el plazo que elige el encargado (7, 15 o 30 días, 15 por defecto). Si el proyecto tiene la extensión `pg_cron` activada, se ejecuta una vez por día; si no, se ejecuta cada vez que entra un pedido a distancia.
 
-Un proyecto nuevo solo necesita `schema.sql` y `seed.sql`.
+Un proyecto nuevo solo necesita `schema.sql` (y `seed.sql` si se quiere el local de pruebas).

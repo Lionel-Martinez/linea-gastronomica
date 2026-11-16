@@ -1,10 +1,25 @@
 -- =====================================================================
--- Edición «delivery» · fija el plan del local
--- Ejecutar DESPUÉS de schema.sql (o de update-14 si es un proyecto viejo).
--- El encargado del local no puede cambiar el plan: solo se cambia desde acá.
+-- Edición «delivery» · alta del local (o cambio de edición) en el Supabase compartido
+-- Ejecutar DESPUÉS de schema.sql. Se puede repetir sin riesgo.
+-- Pedidos y delivery: retiro y delivery, con repartidores.
+--
+-- 1) Cambiar las dos líneas marcadas con «EDITAR».
+-- 2) El nombre corto (slug) es el mismo que se pone en VITE_TENANT al compilar el sitio del local.
+-- El encargado no puede cambiar el plan ni suspender: solo se hace desde acá.
 -- =====================================================================
 
--- Pedidos y delivery: retiro y delivery (sin carta pública ni mesas).
-update public.settings set plan = 'orders', pickup_enabled = true, delivery_enabled = true where id = 1;
+do $$
+declare
+  v_slug text := 'mi-local';      -- EDITAR: nombre corto, minúsculas, números y guiones (ej. 'cafe-del-centro')
+  v_name text := 'Mi local';      -- EDITAR: nombre para mostrar (solo orden interno)
+begin
+  if exists (select 1 from public.tenants where slug = v_slug) then
+    perform public.set_tenant_plan(v_slug, 'orders');
+  else
+    perform public.create_tenant(v_slug, v_name, 'orders');
+  end if;
+end $$;
 
-select plan, ordering_enabled, pickup_enabled, delivery_enabled from public.settings;
+select t.slug, s.plan, s.ordering_enabled, s.pickup_enabled, s.delivery_enabled, s.suspended
+  from public.settings s join public.tenants t on t.id = s.tenant_id
+ order by t.slug;

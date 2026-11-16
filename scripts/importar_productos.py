@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convierte la planilla de productos de un local (CSV) en datos para el sistema.
 
-  python3 scripts/importar_productos.py productos.csv --sql salida.sql       # ediciones con Supabase
+  python3 scripts/importar_productos.py productos.csv --sql salida.sql --local cafe-del-centro   # ediciones con Supabase
   python3 scripts/importar_productos.py productos.csv --menu src/data/menu.json   # edición Carta
 
 Columnas: categoria, producto, descripcion, precio, imagen, disponible, destacado
@@ -81,20 +81,21 @@ def read(path):
 
 def q(t): return "'" + t.replace("'", "''") + "'"
 
-def to_sql(cats, prods):
+def to_sql(cats, prods, local):
     out = ['-- Productos del local (generado por scripts/importar_productos.py)',
-           '-- Ejecutar en el SQL Editor del Supabase del local. No duplica lo que ya existe.', '',
+           '-- Ejecutar en el SQL Editor del Supabase compartido. Carga solo en el local indicado y no duplica lo que ya existe.', '',
+           f'select public.use_tenant({q(local)});', '',
            'insert into public.categories (id, name, sort_order) values']
     out.append(',\n'.join(f'  ({q(i)}, {q(n)}, {k})' for k, (i, n) in enumerate(cats.items())))
-    out.append('on conflict (id) do update set name = excluded.name;\n')
+    out.append('on conflict (tenant_id, id) do update set name = excluded.name;\n')
     out.append('insert into public.products (category_id, name, description, price, image, available, featured, sort_order)')
     out.append('select * from (values')
     rows = [f"  ({q(p['cat'])}, {q(p['name'])}, {q(p['description'])}, {p['price']}::numeric, {q(p['image'])}, "
             f"{str(p['available']).lower()}, {str(p['featured']).lower()}, {k})" for k, p in enumerate(prods)]
     out.append(',\n'.join(rows))
     out.append(') as v (category_id, name, description, price, image, available, featured, sort_order)')
-    out.append('where not exists (select 1 from public.products x where x.category_id = v.category_id and lower(x.name) = lower(v.name));')
-    out.append(f'\nselect count(*) as productos from public.products;')
+    out.append('where not exists (select 1 from public.products x where x.tenant_id = public.tid() and x.category_id = v.category_id and lower(x.name) = lower(v.name));')
+    out.append(f'\nselect count(*) as productos from public.products where tenant_id = public.tid();')
     return '\n'.join(out) + '\n'
 
 def to_menu(path, cats, prods):
@@ -107,11 +108,13 @@ def to_menu(path, cats, prods):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('csv'); ap.add_argument('--sql'); ap.add_argument('--menu')
+    ap.add_argument('csv'); ap.add_argument('--sql'); ap.add_argument('--menu'); ap.add_argument('--local', help='nombre corto del local (obligatorio con --sql)')
     a = ap.parse_args()
     if bool(a.sql) == bool(a.menu):
         sys.exit('Indicá una salida: --sql archivo.sql (Supabase) o --menu src/data/menu.json (edición Carta)')
+    if a.sql and not re.fullmatch(r'[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?', a.local or ''):
+        sys.exit('Con --sql hay que indicar el local con --local <nombre-corto> (minúsculas, números y guiones).')
     cats, prods = read(a.csv)
-    if a.sql: Path(a.sql).write_text(to_sql(cats, prods), encoding='utf-8')
+    if a.sql: Path(a.sql).write_text(to_sql(cats, prods, a.local), encoding='utf-8')
     else: to_menu(a.menu, cats, prods)
     print(f'Listo: {len(cats)} categorías y {len(prods)} productos.')

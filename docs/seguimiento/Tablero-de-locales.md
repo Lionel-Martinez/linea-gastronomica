@@ -59,9 +59,9 @@ WHERE estado = "suspendido"
 ```
 
 ## Costo de infraestructura estimado
-Locales con Supabase en producción o prueba × USD 10 + USD 25 de base (Supabase Pro, valores del 2026-11-15).
+Un solo proyecto de Supabase Pro para todos los locales: costo fijo de USD 25 por mes (valor del 2026-11-15). Si se supera el uso incluido, Supabase cobra extra: revisar el consumo al crecer.
 ```dataview
-TABLE length(rows) AS "Locales con Supabase", 25 + 10 * (length(rows) - 1) AS "USD por mes"
+TABLE length(rows) AS "Locales con Supabase", 25 AS "USD por mes (fijo)"
 FROM "linea-gastronomica/Locales"
 WHERE (estado = "en-produccion" OR estado = "en-prueba" OR estado = "armando") AND edicion != "carta"
 GROUP BY true

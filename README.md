@@ -11,6 +11,6 @@ Carta digital, pedidos y delivery para locales gastronómicos (Vue 3 + Vite + Ta
 | Completo | `npm run build:completo` (o `npm run build`) | `dist` | Sí (`editions/completo.sql`) |
 
 - `npm run build:all` compila las cinco. `npm run dev:<edicion>` para desarrollar.
-- Variables (`.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (no para Carta).
+- Variables (`.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_TENANT` (nombre corto del local; no para Carta). Un solo Supabase atiende a todos los locales.
 - Carta: los productos están en `src/data/menu.json`; el QR del local se imprime desde `/qr`.
 - Guías por edición: `docs/ediciones/`. Base de datos: `supabase/README.md`.
