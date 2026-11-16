@@ -65,6 +65,15 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 14. `update-14-plan-mesa.sql` (después de la 13): agrega el plan `table` (Carta + Panel + Mesa).
 
+15. `update-15-suspension.sql` (después de la 14): **suspensión por falta de pago**. Solo LM Studio la cambia, desde el SQL Editor (el local no puede):
+
+    ```sql
+    update public.settings set suspended = true;    -- cierra la vista (datos intactos)
+    update public.settings set suspended = false;   -- la devuelve al pagar
+    ```
+
+    Suspendido: la carta, los pedidos y el panel muestran «Servicio suspendido» y no entran pedidos nuevos. En la edición Carta (sin base) se suspende quitando el dominio en Cloudflare.
+
 **Ediciones (versión 2):** cada local usa una edición del sistema (Carta, Carta + Panel, Carta + Panel + Mesa, Pedidos y delivery, Completo). Después de `schema.sql` y `seed.sql`, ejecutar `supabase/editions/<edicion>.sql`, que fija el plan. La edición Carta no usa Supabase. Ver `supabase/editions/README.md` y `docs/ediciones/`.
 
 Mapa: sin configurar usa el mapa estándar de OpenStreetMap, que solo sirve para pruebas (su política lo desaconseja para apps comerciales). En producción usar Geoapify: variables de compilación `VITE_MAP_TILES_URL` y `VITE_MAP_ATTRIBUTION`. Ver `docs/Mapas-Geoapify.md`.

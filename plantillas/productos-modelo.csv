@@ -1,0 +1,5 @@
+categoria,producto,descripcion,precio,imagen,disponible,destacado
+Cafetería,Cappuccino,Espresso con leche vaporizada y espuma cremosa.,3500,,si,si
+Cafetería,Latte,Café espresso combinado con leche cremosa.,3800,,si,no
+Pastelería,Medialunas,Dos medialunas de manteca recién horneadas.,2800,,si,si
+Pastelería,Cheesecake,Porción de cheesecake con frutos rojos.,5200,https://ejemplo.com/cheesecake.jpg,no,no

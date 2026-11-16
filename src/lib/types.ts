@@ -85,6 +85,8 @@ export interface Settings {
   max_remote_per_hour: number
   near_radius_m: 150 | 300 | 500
   plan: Plan
+  /** Servicio suspendido por falta de pago (lo cambia solo LM Studio). */
+  suspended?: boolean
 }
 
 export interface DeliveryZone {

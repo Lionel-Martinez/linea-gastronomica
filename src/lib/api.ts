@@ -29,6 +29,8 @@ export function friendlyError(error: unknown): string {
     return 'No tenés permiso para subir fotos. Solo el encargado puede hacerlo.'
   if (message.includes('plan_not_allowed'))
     return 'Tu plan no incluye esta acción. Consultá con LM Studio si querés ampliarlo.'
+  if (message.includes('service_suspended'))
+    return 'Este servicio está suspendido por el momento. Comunicate con el local.'
   if (message.includes('invalid_table'))
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
