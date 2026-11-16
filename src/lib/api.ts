@@ -410,10 +410,21 @@ export async function saveProductPrice(id: string, price: number, available: boo
 
 const IMAGE_BUCKET = 'product-images'
 
+let cachedTenantId: string | null = null
+
+async function tenantFolder(): Promise<string> {
+  if (cachedTenantId) return cachedTenantId
+  const { data, error } = await db().from('settings').select('tenant_id').single()
+  if (error || !data?.tenant_id) throw error ?? new Error('unknown_tenant')
+  cachedTenantId = data.tenant_id as string
+  return cachedTenantId
+}
+
 /** Sube la foto de un producto y devuelve su enlace público. */
 export async function uploadProductImage(file: File): Promise<string> {
   const { blob, ext } = await prepareImage(file)
-  const path = `${crypto.randomUUID()}.${ext}`
+  // Cada local sube a su propia carpeta (la base solo deja escribir en la del local del encargado).
+  const path = `${await tenantFolder()}/${crypto.randomUUID()}.${ext}`
 
   const { error } = await db()
     .storage.from(IMAGE_BUCKET)

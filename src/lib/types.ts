@@ -67,6 +67,7 @@ export const MODALITY_LABEL: Record<Modality, string> = {
 }
 
 export interface Settings {
+  tenant_id?: string
   table_count: number
   payment_alias: string
   payment_cbu: string

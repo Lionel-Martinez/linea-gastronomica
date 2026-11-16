@@ -3,6 +3,7 @@
 //   TURNSTILE_SECRET   clave secreta de Turnstile (Secret)
 //   SUPABASE_URL       https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY  la clave pública (publishable/anon) del proyecto
+//   TENANT             el nombre del local (el mismo VITE_TENANT del sitio)
 //   ORDER_GATE         el mismo texto que se guardó en la base como 'order_gate' (Secret)
 
 interface Env {
@@ -10,6 +11,7 @@ interface Env {
   SUPABASE_URL: string
   SUPABASE_ANON_KEY: string
   ORDER_GATE: string
+  TENANT: string
 }
 
 const RPC = { table: 'create_order', remote: 'create_remote_order' } as const
@@ -21,7 +23,7 @@ const json = (body: unknown, status = 200) =>
   })
 
 export const onRequestPost = async ({ request, env }: { request: Request; env: Env }) => {
-  if (!env.TURNSTILE_SECRET || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.ORDER_GATE) {
+  if (!env.TURNSTILE_SECRET || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.ORDER_GATE || !env.TENANT) {
     return json({ message: 'server_misconfigured' }, 500)
   }
 
@@ -72,7 +74,8 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     headers: {
       'content-type': 'application/json',
       apikey: env.SUPABASE_ANON_KEY,
-      authorization: `Bearer ${env.SUPABASE_ANON_KEY}`
+      authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+      'x-tenant': env.TENANT
     },
     body: JSON.stringify({ ...body.args, p_gate: env.ORDER_GATE })
   })

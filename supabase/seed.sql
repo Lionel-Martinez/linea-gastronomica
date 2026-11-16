@@ -1,7 +1,10 @@
 -- =====================================================================
 -- Datos iniciales (ficticios) tomados de src/data/menu.json
 -- Ejecutar DESPUÉS de schema.sql. No duplica datos si se ejecuta de nuevo.
+-- Carga los datos de ejemplo en el local «demo» (el que crea la migración multi-local).
 -- =====================================================================
+
+select public.use_tenant('demo');
 
 insert into public.categories (id, name, sort_order) values
   ('coffee', 'Cafetería', 0),
@@ -9,7 +12,7 @@ insert into public.categories (id, name, sort_order) values
   ('bakery', 'Pastelería', 2),
   ('breakfast', 'Desayunos', 3),
   ('salty', 'Salados', 4)
-on conflict (id) do nothing;
+on conflict do nothing;
 
 insert into public.products (category_id, name, description, price, image, available, featured, sort_order)
 select * from (values
@@ -20,4 +23,4 @@ select * from (values
   ('bakery', 'Cheesecake', 'Porción de cheesecake con frutos rojos.', 5200::numeric, 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=700', true, false, 4),
   ('salty', 'Tostado clásico', 'Jamón y queso en pan tostado.', 4800::numeric, 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=700', true, false, 5)
 ) as v (category_id, name, description, price, image, available, featured, sort_order)
-where not exists (select 1 from public.products);
+where not exists (select 1 from public.products where tenant_id = public.tid());
