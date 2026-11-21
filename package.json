@@ -1,23 +1,12 @@
 {
-  "name": "linea-gastronomica",
+  "name": "linea-gastronomica-carta",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build --mode completo",
-    "preview": "vite preview",
-    "build:carta": "vue-tsc -b && vite build --mode carta",
-    "build:panel": "vue-tsc -b && vite build --mode panel",
-    "build:mesa": "vue-tsc -b && vite build --mode mesa",
-    "build:delivery": "vue-tsc -b && vite build --mode delivery",
-    "build:completo": "vue-tsc -b && vite build --mode completo",
-    "build:all": "vue-tsc -b && vite build --mode carta --outDir dist-carta && vite build --mode panel --outDir dist-panel && vite build --mode mesa --outDir dist-mesa && vite build --mode delivery --outDir dist-delivery && vite build --mode completo --outDir dist-completo",
-    "dev:carta": "vite --mode carta",
-    "dev:panel": "vite --mode panel",
-    "dev:mesa": "vite --mode mesa",
-    "dev:delivery": "vite --mode delivery",
-    "dev:completo": "vite --mode completo"
+    "dev": "vite --mode carta",
+    "build": "vue-tsc -b && vite build --mode carta",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
