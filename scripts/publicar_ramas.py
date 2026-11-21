@@ -31,7 +31,7 @@ subprocess.run([sys.executable, str(ROOT / 'scripts' / 'exportar_ediciones.py'),
 for ed in eds:
     branch = f'edicion/{ed}'
     wt = tmp / f'wt-{ed}'
-    git('fetch', 'origin', branch, check=False)
+    git('fetch', 'origin', f'+refs/heads/{branch}:refs/remotes/origin/{branch}', check=False)
     base = f'origin/{branch}' if git('rev-parse', '--verify', '-q', f'origin/{branch}', check=False) else 'HEAD'
     git('worktree', 'add', '-B', branch, str(wt), base)
     for item in wt.iterdir():
