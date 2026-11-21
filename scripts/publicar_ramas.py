@@ -25,6 +25,9 @@ if git('status', '--porcelain'): sys.exit('Hay cambios sin guardar: hacer commit
 if git('rev-parse', '--abbrev-ref', 'HEAD') != 'main': sys.exit('Ejecutar desde la rama main.')
 git('pull', '--rebase', 'origin', 'main')
 sha = git('rev-parse', '--short', 'HEAD')
+for line in git('worktree', 'list', '--porcelain').splitlines():  # limpia restos de una corrida que falló
+    if line.startswith('worktree ') and 'ramas-' in line: git('worktree', 'remove', '--force', line[9:], check=False)
+git('worktree', 'prune')
 
 tmp = Path(tempfile.mkdtemp(prefix='ramas-'))
 subprocess.run([sys.executable, str(ROOT / 'scripts' / 'exportar_ediciones.py'), str(tmp / 'out')], check=True, capture_output=True)
