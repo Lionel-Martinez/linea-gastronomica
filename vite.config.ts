@@ -8,12 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 const EDITIONS = ['carta', 'panel', 'mesa', 'delivery', 'completo'] as const
 type Edition = (typeof EDITIONS)[number]
 
-const pick = (mode: string): Edition => {
-  if ((EDITIONS as readonly string[]).includes(mode)) return mode as Edition
-  const fromEnv = process.env.EDITION
-  return (EDITIONS as readonly string[]).includes(fromEnv ?? '') ? (fromEnv as Edition) : 'completo'
-}
-
+const pick = (_mode: string): Edition => 'delivery' // edición fija de este proyecto
 // La edición Carta no habla con ningún servidor: sus cabeceras de seguridad lo reflejan.
 function headersFor(edition: Edition): Plugin {
   let outDir = ''
