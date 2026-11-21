@@ -42,6 +42,13 @@ for ed, label in EDS.items():
     }
     (d / 'package.json').write_text(json.dumps(p, indent=2, ensure_ascii=False) + '\n')
 
+    # vite.config: la edición queda FIJA (da igual el comando o el modo con que se compile en Cloudflare)
+    vc = (d / 'vite.config.ts').read_text()
+    a = vc.index('const pick = (mode: string): Edition => {')
+    b = vc.index('\n}\n', a) + 3
+    vc = vc[:a] + f"const pick = (_mode: string): Edition => '{ed}' // edición fija de este proyecto" + vc[b:]
+    (d / 'vite.config.ts').write_text(vc)
+
     # wrangler: nombre propio
     w = (d / 'wrangler.jsonc').read_text().replace('"name": "linea-gastronomica"', f'"name": "{name}"')
     (d / 'wrangler.jsonc').write_text(w)
