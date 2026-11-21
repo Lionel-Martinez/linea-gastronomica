@@ -1,6 +1,5 @@
 import { prepareImage } from './images'
 import { db } from './supabase'
-import { getTurnstileToken, turnstileEnabled } from './turnstile'
 import type {
   BlockedPhone,
   Category,
@@ -35,8 +34,6 @@ export function friendlyError(error: unknown): string {
     return 'Esta mesa no existe. Avisale al personal para que revise el código QR.'
   if (message.includes('too_many_pending'))
     return 'Ya hay varios pedidos esperando confirmación. Esperá a que el local los confirme o avisale al personal.'
-  if (message.includes('turnstile_failed') || message.includes('turnstile_unavailable'))
-    return 'No pudimos verificar que sos una persona. Revisá tu conexión y probá de nuevo.'
   if (message.includes('gate_denied') || message.includes('server_misconfigured') || message.includes('bad_origin'))
     return 'El pedido no se pudo enviar por un problema del local. Avisale al personal.'
   if (message.includes('table_limit'))
@@ -176,27 +173,13 @@ export async function createOrder(
   return data as string
 }
 
-/**
- * Crea el pedido. Si el local activó Turnstile, pasa por /api/pedido (el servidor verifica que sea
- * una persona); si no, va directo a la base como siempre.
- */
+/** Crea el pedido directo en la base (los topes por mesa/teléfono/hora los aplica la base). */
 async function placeOrder(
-  kind: 'table' | 'remote',
+  _kind: 'table' | 'remote',
   fn: 'create_order' | 'create_remote_order',
   args: Record<string, unknown>
 ): Promise<{ data: unknown; error: { message: string } | null }> {
-  if (!turnstileEnabled) return db().rpc(fn, args)
-
-  const turnstile = await getTurnstileToken()
-  const reply = await fetch('/api/pedido', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ kind, args, turnstile })
-  })
-  const body = await reply.json().catch(() => null)
-
-  if (!reply.ok) return { data: null, error: { message: String(body?.message ?? 'unknown') } }
-  return { data: body, error: null }
+  return db().rpc(fn, args)
 }
 
 export interface RemoteOrderInput {

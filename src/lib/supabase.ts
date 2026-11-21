@@ -7,6 +7,13 @@ export const tenantSlug = ((import.meta.env.VITE_TENANT as string | undefined) ?
 
 // Si faltan las variables de entorno la app no se rompe: las pantallas de la
 // Etapa 2 muestran un aviso y el menú de la Etapa 1 sigue funcionando.
+/** Variables de compilación que faltan (para mostrarlas en el aviso). */
+export const missingVars = [
+  !url && 'VITE_SUPABASE_URL',
+  !key && 'VITE_SUPABASE_ANON_KEY',
+  !tenantSlug && 'VITE_TENANT'
+].filter(Boolean) as string[]
+
 export const isSupabaseConfigured = Boolean(url && key && tenantSlug)
 
 export const supabase: SupabaseClient | null =

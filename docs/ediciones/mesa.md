@@ -25,7 +25,6 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `mesa.md`
 
 ## 3. Qué necesita
 - Alta en el Supabase compartido de LM Studio y Cloudflare.
-- Opcional: Cloudflare Turnstile (anti-bots) — ver `supabase/README.md`, update-10.
 
 - Pestañas del panel: Pedidos · Productos · Ajustes · Códigos QR
 - Roles que se usan: Encargado, mostrador, mozo, cocina
@@ -36,8 +35,7 @@ Carpeta recomendada: `linea-gastronomica/Ediciones/` · Archivo: `mesa.md`
 2. **Alta del local.** En el SQL Editor, ejecutar `supabase/editions/mesa.sql` cambiando el nombre corto (`v_slug`, ej. `cafe-del-centro`) y el nombre. Crea el local con el plan de la edición.
 3. **Usuarios del personal.** Crearlos en Authentication → Users (con «Auto Confirm User») y asignarlos al local con su rol: `select public.add_staff('encargado@correo.com', 'cafe-del-centro', 'manager');` (roles: `manager`, `counter`, `waiter`, `kitchen`, `courier`; cada persona pertenece a un solo local). El primero siempre es `manager`.
 4. **Datos del local.** Editar `src/data/menu.json`: nombre, descripción, dirección, horarios, WiFi, WhatsApp y los productos de ejemplo (se reemplazan por los que cargue el local en el panel).
-5. **Publicar en Cloudflare.** Conectar el repositorio. Comando de compilación: `npm run build:mesa` · Comando de implementación: `npx wrangler deploy` (usa `wrangler.jsonc`, que publica `dist`; el nombre del proyecto en Cloudflare debe coincidir con el `name` del archivo, o usar `npx wrangler deploy --name <proyecto>`). Variables de entorno (Settings → Variables and Secrets): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_TENANT` (el nombre corto del local, igual al del alta) (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
-6. **Opcional, anti-bots (Turnstile).** Seguir `supabase/README.md` (update-10) y cargar las variables de la Function de Pedidos en Cloudflare.
+5. **Publicar en Cloudflare.** Conectar el repositorio. Comando de compilación: `npm run build:mesa` · Comando de implementación: `npx wrangler deploy` (usa `wrangler.jsonc`, que publica `dist`; el nombre del proyecto en Cloudflare debe coincidir con el `name` del archivo, o usar `npx wrangler deploy --name <proyecto>`). Variables de entorno (Settings → Build → Variables and secrets): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_TENANT` (el nombre corto del local, igual al del alta) (la clave `anon`/`publishable`; **nunca** la `service_role`). Se leen al compilar: si las cambiás, hay que volver a publicar.
 7. **Dominio.** Conectar el dominio del local (o un subdominio de `lm-studio.com.ar`) en Cloudflare.
 8. **Ajustes y QR.** Entrar al panel → **Ajustes** (formas de pago, alias/CBU, WhatsApp, límites) y después **Códigos QR** para imprimir los QR de la carta y de cada mesa.
 

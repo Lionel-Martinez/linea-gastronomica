@@ -55,9 +55,6 @@ for ed, label in EDS.items():
             if f.name != f'{ed}.sql':
                 f.unlink()
         (sb / 'editions' / 'README.md').unlink(missing_ok=True)
-    # La Function de Turnstile solo aplica a pedidos a distancia
-    if ed not in ('delivery', 'completo'):
-        shutil.rmtree(d / 'functions', ignore_errors=True)
 
     # Guía de la edición como README del proyecto
     g = (ROOT / 'docs' / 'ediciones' / f'{ed}.md').read_text()

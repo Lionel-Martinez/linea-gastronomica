@@ -69,7 +69,8 @@ Todos los locales comparten **un solo proyecto de Supabase** (cada local es un �
 - Un encargado/personal pertenece a **un solo** local. Cada sitio sabe su local por `VITE_TENANT` (variable de compilación).
 - Lo que ya existía pasó a ser el local `demo`.
 - Las tablas conservan `tenant_id`: si un local crece, se puede copiar a un proyecto propio.
-- Riesgos: un error de configuración en un solo proyecto afecta a todos (por eso la base rechaza `update` masivos de ajustes); la compuerta Turnstile (`order_gate`) es una sola para todos los locales.
+- Riesgos: un error de configuración en un solo proyecto afecta a todos (por eso la base rechaza `update` masivos de ajustes).
+- Turnstile (anti-bots) se **retiró el 2026-11-20** (era opcional, estaba apagado y confundía la configuración). Los topes por mesa, teléfono y hora siguen protegiendo los pedidos. Se puede recuperar desde el historial de git (commit 2bf17f1).
 
 ## Límite conocido
 El sitio de cada edición no lleva las pantallas que no usa. Dentro de las pantallas compartidas (pedido, panel) queda algo de código que esa edición nunca ejecuta; no se ve ni se puede abrir.

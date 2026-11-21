@@ -23,8 +23,7 @@ pertenece por la variable de compilación `VITE_TENANT`. Plan **Pro** recomendad
    ```
    Para cambiar el rol o el local de alguien se vuelve a llamar a `add_staff` con los nuevos datos.
 4. Compilar y publicar el sitio del local con tres variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_TENANT=cafe-del-centro`
-   (en Cloudflare: Settings → Variables and Secrets; se leen al compilar, hay que volver a desplegar).
-   Si el local usa la compuerta Turnstile, la Function además necesita `TENANT` con el mismo nombre corto.
+   (en Cloudflare: Settings → Build → Variables and secrets; se leen al compilar, hay que volver a desplegar).
 5. Entrar a `/staff/login`, ajustar mesas y alias/CBU en **Ajustes**, e imprimir los QR desde **Códigos QR**.
 
 ## Operación (solo LM Studio, desde el SQL Editor)
@@ -73,7 +72,7 @@ Ejecutar en el SQL Editor, **en orden y solo las que falten** (se pueden repetir
 
 8. `update-09-limites-de-pedidos.sql` (después de la 08): límites contra pedidos falsos que el encargado ajusta en **Ajustes**: pedidos en curso por mesa (3), sin confirmar por teléfono (5), pedidos por teléfono por hora (3) y retiro/delivery por hora en todo el local (20).
 
-9. `update-10-compuerta-turnstile.sql` (después de la 09): prepara la **compuerta opcional** para Turnstile (anti-bots). No cambia nada hasta que se enciende. La guía completa está en `Guia-Turnstile.md` (carpeta Seguridad del vault); resumen: crear el widget en Cloudflare, cargar las variables `TURNSTILE_SECRET`, `ORDER_GATE`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `VITE_TURNSTILE_SITEKEY` en Pages, redeployar y recién ahí guardar `order_gate` en la tabla `app_secrets`.
+9. `update-10-compuerta-turnstile.sql` (después de la 09): prepara la **compuerta opcional** para Turnstile (anti-bots). No cambia nada hasta que se enciende. La guía completa está en `Guia-Turnstile.md` (carpeta Seguridad del vault); resumen: crear el widget en Cloudflare, cargar las variables `TURNSTILE_SECRET`, `ORDER_GATE`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `VITE_TURNSTILE_SITEKEY` en Pages, redeployar y recién ahí guardar `order_gate` en la tabla `app_secrets`. **Retirado del sitio el 2026-11-20:** no cargar la clave `order_gate`; si estuviera cargada, los pedidos serían rechazados.
 
 11. `update-11-radio-de-aviso.sql` (después de la 10): el encargado elige en **Ajustes** a qué distancia se avisa solo «el delivery está cerca» (150, 300 o 500 m; 300 por defecto).
 
