@@ -351,8 +351,8 @@ onMounted(async () => {
     </form>
 
     <div v-if="!loading" class="mt-10 max-w-xl space-y-8">
-      <ZonesEditor v-if="form.delivery_enabled" />
-      <BlockedPhones v-if="form.pickup_enabled || form.delivery_enabled" />
+      <ZonesEditor v-if="hasRemoteOrdering(form.plan) && form.delivery_enabled" />
+      <BlockedPhones v-if="hasRemoteOrdering(form.plan) && (form.pickup_enabled || form.delivery_enabled)" />
     </div>
   </main>
 </template>
