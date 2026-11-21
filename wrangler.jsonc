@@ -2,7 +2,7 @@
   // Publica la carpeta "dist" que deja `npm run build:<edicion>`.
   // El nombre debe coincidir con el del proyecto en Cloudflare
   // (o usar `npx wrangler deploy --name <proyecto>` como comando de implementación).
-  "name": "linea-gastronomica",
+  "name": "linea-gastronomica-completo",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./dist",
