@@ -181,6 +181,33 @@ onMounted(async () => {
         </label>
       </fieldset>
 
+      <fieldset v-if="hasTableOrdering(form.plan) || hasRemoteOrdering(form.plan)" class="space-y-3 border-t border-ink pt-5" data-limits>
+        <legend class="font-display pr-3 text-xl font-semibold">Límites contra pedidos falsos</legend>
+        <p class="text-sm text-ink-soft">
+          Cuando se alcanza un límite, el sistema rechaza el pedido nuevo y le pide al cliente que consulte con el local.
+        </p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div v-if="hasTableOrdering(form.plan)">
+            <label for="s-lim-table" class="mb-1.5 block text-sm font-medium">Pedidos en curso por mesa</label>
+            <input id="s-lim-table" v-model.number="form.max_active_per_table" type="number" inputmode="numeric" min="1" max="20" class="field" />
+          </div>
+          <template v-if="hasRemoteOrdering(form.plan) && (form.pickup_enabled || form.delivery_enabled)">
+            <div>
+              <label for="s-lim-pending" class="mb-1.5 block text-sm font-medium">Sin confirmar por teléfono</label>
+              <input id="s-lim-pending" v-model.number="form.max_pending_per_phone" type="number" inputmode="numeric" min="1" max="20" class="field" />
+            </div>
+            <div>
+              <label for="s-lim-phone-hour" class="mb-1.5 block text-sm font-medium">Pedidos por teléfono por hora</label>
+              <input id="s-lim-phone-hour" v-model.number="form.max_orders_per_phone_hour" type="number" inputmode="numeric" min="1" max="20" class="field" />
+            </div>
+            <div>
+              <label for="s-lim-local-hour" class="mb-1.5 block text-sm font-medium">Retiro y delivery por hora (total)</label>
+              <input id="s-lim-local-hour" v-model.number="form.max_remote_per_hour" type="number" inputmode="numeric" min="1" max="200" class="field" />
+            </div>
+          </template>
+        </div>
+      </fieldset>
+
  <fieldset v-if="hasRemoteOrdering(form.plan)" class="space-y-3 border-t border-ink pt-5">
         <legend class="font-display pr-3 text-xl font-semibold">Pedidos desde casa</legend>
         <p class="text-sm text-ink-soft">
@@ -213,31 +240,6 @@ onMounted(async () => {
             </span>
           </span>
         </label>
-
-        <fieldset class="space-y-3 border-t border-rule pt-4">
-          <legend class="text-sm font-semibold">Límites contra pedidos falsos</legend>
-          <p class="text-sm text-ink-soft">
-            Cuando se alcanza un límite, el sistema rechaza el pedido nuevo y le pide al cliente que consulte con el local.
-          </p>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label for="s-lim-table" class="mb-1.5 block text-sm font-medium">Pedidos en curso por mesa</label>
-              <input id="s-lim-table" v-model.number="form.max_active_per_table" type="number" inputmode="numeric" min="1" max="20" class="field" />
-            </div>
-            <div v-if="form.pickup_enabled || form.delivery_enabled">
-              <label for="s-lim-pending" class="mb-1.5 block text-sm font-medium">Sin confirmar por teléfono</label>
-              <input id="s-lim-pending" v-model.number="form.max_pending_per_phone" type="number" inputmode="numeric" min="1" max="20" class="field" />
-            </div>
-            <div v-if="form.pickup_enabled || form.delivery_enabled">
-              <label for="s-lim-phone-hour" class="mb-1.5 block text-sm font-medium">Pedidos por teléfono por hora</label>
-              <input id="s-lim-phone-hour" v-model.number="form.max_orders_per_phone_hour" type="number" inputmode="numeric" min="1" max="20" class="field" />
-            </div>
-            <div v-if="form.pickup_enabled || form.delivery_enabled">
-              <label for="s-lim-local-hour" class="mb-1.5 block text-sm font-medium">Retiro y delivery por hora (total)</label>
-              <input id="s-lim-local-hour" v-model.number="form.max_remote_per_hour" type="number" inputmode="numeric" min="1" max="200" class="field" />
-            </div>
-          </div>
-        </fieldset>
 
         <div v-if="form.pickup_enabled || form.delivery_enabled" class="space-y-4 pt-1">
           <div v-if="form.delivery_enabled">
