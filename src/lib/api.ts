@@ -89,7 +89,7 @@ export function friendlyError(error: unknown): string {
   if (message.includes('not_configured'))
     return 'Falta configurar la conexión con Supabase.'
   if (/fetch|network|load failed/i.test(message))
-    return 'No hay conexión. Revisá tu internet e intentá de nuevo.'
+    return 'No hay conexión con el servidor. Revisá tu internet e intentá de nuevo. Si sigue igual, puede ser que el proyecto de Supabase esté pausado o mal configurado (avisá a soporte).'
 
   return 'Ocurrió un error inesperado. Intentá de nuevo.'
 }
