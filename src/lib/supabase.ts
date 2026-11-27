@@ -20,9 +20,15 @@ export const supabase: SupabaseClient | null =
   url && key && tenantSlug
     ? createClient(url, key, {
         global: {
-          headers: { 'x-tenant': tenantSlug },
+          // La cabecera del local se manda SOLO a la API de datos (/rest/v1). El login y las fotos
+          // no la necesitan y un servidor puede rechazar cabeceras que no conoce (error de conexión).
           // Los datos cambian seguido (mesas, precios, pedidos): nunca se reutiliza una respuesta guardada.
-          fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' })
+          fetch: (input, init) => {
+            const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+            const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
+            if (href.includes('/rest/v1/')) headers.set('x-tenant', tenantSlug)
+            return fetch(input, { ...init, headers, cache: 'no-store' })
+          }
         }
       })
     : null
