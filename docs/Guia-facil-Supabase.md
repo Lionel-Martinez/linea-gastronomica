@@ -57,7 +57,8 @@ Para sacar a una persona: Authentication → Users → ese usuario → Delete.
 | Entra al login pero dice credenciales inválidas | Authentication → Users: ¿existe el usuario? ¿Confirmado? Restablecer la contraseña. |
 | Entra pero no ve nada / «sin acceso» | Falta `add_staff` o el nombre corto de `VITE_TENANT` no coincide con el del local. |
 | «Servicio suspendido» | `suspend_tenant('<local>', false)` (¿pagó?). |
-| Se ve el panel con funciones de más | Revisar el plan: `set_tenant_plan` y la edición publicada. |
+| Se ve el panel con funciones de más o de menos | La edición Completo sigue el plan guardado en la base: `select public.set_tenant_plan('<local>', 'full');`. Cada sitio/demo debe tener su propio `VITE_TENANT`. |
+| «No hay conexión con el servidor» al entrar | Proyecto de Supabase pausado (plan gratis) o URL/clave mal cargadas: abrir el panel de Supabase y reactivar; revisar `VITE_SUPABASE_URL`. |
 | Los pedidos no entran | Ajustes del local: «Recibir pedidos» activado; revisar los topes y si el local está suspendido. |
 | Supabase pausado (plan gratis) | Entrar al panel de Supabase y reactivar el proyecto (en Pro no pasa). |
 
